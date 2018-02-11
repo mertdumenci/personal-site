@@ -75,12 +75,20 @@ a:visited {
 }
 
 a:hover {
-    color: #FF5500;
+    border-radius: 3pt;
+    padding: 2pt;
+
+    background-color: #FF7E00;
+    color: white;
     text-decoration: underline;
 }
 
 a:active {
-    color: #FF5500;
+    border-radius: 3pt;
+    padding: 2pt;
+
+    background-color: #FF7E00;
+    color: white;
     text-decoration: underline;
 }
 
