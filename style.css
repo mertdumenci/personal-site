@@ -61,6 +61,16 @@ body {
     margin-bottom: 4pt;
 }
 
+.position-detail {
+    font-size: 12pt;
+    margin-bottom: 7pt;
+    color: #857769;
+}
+
+.position-spacing {
+    margin-bottom: 12pt;
+}
+
 /*
     Links
 */
