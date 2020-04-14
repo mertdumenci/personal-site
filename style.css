@@ -50,6 +50,7 @@ body {
     font-size: 9pt;
     letter-spacing: 3.06px;
     line-height: 12pt;
+    margin-bottom: 4pt;
 }
 
 .temporality-text {
@@ -65,6 +66,7 @@ body {
     font-size: 12pt;
     margin-bottom: 7pt;
     color: #857769;
+    max-width: 550pt;
 }
 
 .position-spacing {
