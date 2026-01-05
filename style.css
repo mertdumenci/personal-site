@@ -3,6 +3,7 @@
     --text: #1a1a1a;
     --text-secondary: #555555;
     --accent: #2563eb;
+    --accent-bg: rgba(37, 99, 235, 0.1);
     --border: #d4d4d4;
     --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 }
@@ -13,6 +14,7 @@
         --text: #e8e8e8;
         --text-secondary: #888888;
         --accent: #60a5fa;
+        --accent-bg: rgba(96, 165, 250, 0.15);
         --border: #333333;
     }
 }
@@ -61,13 +63,51 @@ main {
     color: var(--text-secondary);
 }
 
-.role a {
+.role a, .value a {
     color: var(--accent);
     text-decoration: none;
+    display: inline-block;
+    position: relative;
+    /* Removed padding/margin hack to prevent layout shift from the pill itself */
+    z-index: 1;
 }
 
-.role a:hover {
-    text-decoration: underline;
+/* Superimposed pill background */
+.role a::before, .value a::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    left: -6px;
+    right: -6px;
+    background-color: var(--accent-bg);
+    border-radius: 6px;
+    opacity: 0;
+    z-index: -1;
+    transition: opacity 0.2s ease;
+}
+
+.role a:hover::before, .value a:hover::before {
+    opacity: 1;
+}
+
+.favicon {
+    width: 0;
+    height: 14px;
+    opacity: 0;
+    margin-right: 0;
+    transition: width 0.2s ease, opacity 0.2s ease, margin-right 0.2s ease;
+    object-fit: contain;
+    display: inline-block;
+    vertical-align: middle;
+    position: relative;
+    top: -1px;
+}
+
+.role a:hover .favicon, .value a:hover .favicon {
+    width: 14px;
+    opacity: 1;
+    margin-right: 6px;
 }
 
 .section {
@@ -107,13 +147,4 @@ main {
 
 .value {
     font-size: 0.875rem;
-}
-
-.value a {
-    color: var(--accent);
-    text-decoration: none;
-}
-
-.value a:hover {
-    text-decoration: underline;
 }
