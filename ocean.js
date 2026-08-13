@@ -45,7 +45,7 @@
             );
         }
 
-        vec3 waveField(vec2 point) {
+        float waveField(vec2 point) {
             const vec2 swellA = vec2(0.17715, 0.98418);
             const vec2 swellB = vec2(-0.46135, 0.88722);
             const vec2 swellC = vec2(0.66063, 0.75071);
@@ -62,12 +62,8 @@
                 + sin(phaseB) * 0.21 * weightB
                 + sin(phaseC) * 0.085 * weightC
                 + sin(phaseD) * 0.032 * weightD;
-            vec2 gradient = cos(phaseA) * 0.44 * 1.48 * swellA * weightA
-                + cos(phaseB) * 0.21 * 2.72 * swellB * weightB
-                + cos(phaseC) * 0.085 * 5.15 * swellC * weightC
-                + cos(phaseD) * 0.032 * vec2(7.5, -0.38) * weightD;
 
-            return vec3(height, gradient);
+            return height;
         }
 
         float contour(float signal, float weight) {
@@ -94,21 +90,7 @@
             float worldZ = perspective;
             float logDepth = log(1.0 + worldZ);
             vec2 surfacePoint = vec2(worldX, worldZ);
-            vec3 field = waveField(surfacePoint);
-            float height = field.x;
-            vec3 normal = normalize(vec3(-field.y, 1.0, -field.z));
-
-            vec3 lightDirection = normalize(vec3(-0.48, 0.82, 0.31));
-            vec3 viewDirection = normalize(vec3(-worldX * 0.025, 1.35, -1.0));
-            float diffuse = clamp(dot(normal, lightDirection), 0.0, 1.0);
-            float specular = max(
-                dot(reflect(-lightDirection, normal), viewDirection),
-                0.0
-            );
-            float specularSquared = specular * specular;
-            float specularFourth = specularSquared * specularSquared;
-            float specularEighth = specularFourth * specularFourth;
-            specular = specularEighth * specularEighth * specularEighth;
+            float height = waveField(surfacePoint);
             float depthFade = smoothstep(0.012, 0.88, screenDepth);
             float structureFade = smoothstep(0.0015, 0.085, screenDepth);
             float foreground = smoothstep(0.08, 0.94, screenDepth);
@@ -123,9 +105,7 @@
                 -abs(uv.y - horizon) * resolution.y * 0.42
             );
 
-            float surfaceDarkness = (
-                0.18 + (1.0 - diffuse) * 0.025 - specular * 0.015
-            ) * depthFade;
+            float surfaceDarkness = 0.195 * depthFade;
             float dither = (gradientNoise(gl_FragCoord.xy) - 0.5)
                 / 255.0 * depthFade;
             float alpha = clamp(

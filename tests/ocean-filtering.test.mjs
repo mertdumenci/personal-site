@@ -42,5 +42,15 @@ assert.match(
     /gradientNoise\(gl_FragCoord\.xy\)/,
     'dithering must operate at physical-pixel resolution',
 );
+assert.match(
+    ocean,
+    /float surfaceDarkness = 0\.195 \* depthFade/,
+    'the base surface tone must remain free of broad normal-lighting lobes',
+);
+assert.doesNotMatch(
+    ocean,
+    /\b(?:diffuse|specular)\b/,
+    'broad lighting fields must not reintroduce amorphous bands',
+);
 
 console.log('Ocean screen-space filtering contract passed.');
