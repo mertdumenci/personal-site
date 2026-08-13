@@ -1,9 +1,9 @@
 :root {
     --bg: #ffffff;
+    --bg-rgb: 255, 255, 255;
     --text: #1a1a1a;
     --text-secondary: #555555;
     --accent: #2563eb;
-    --accent-bg: rgba(37, 99, 235, 0.1);
     --border: #d4d4d4;
     --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 }
@@ -11,10 +11,10 @@
 @media (prefers-color-scheme: dark) {
     :root {
         --bg: #111111;
+        --bg-rgb: 17, 17, 17;
         --text: #e8e8e8;
         --text-secondary: #888888;
         --accent: #60a5fa;
-        --accent-bg: rgba(96, 165, 250, 0.15);
         --border: #333333;
     }
 }
@@ -43,11 +43,35 @@ html {
 body {
     background: var(--bg);
     color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
 }
 
 main {
+    position: relative;
+    z-index: 1;
     max-width: 560px;
     padding: 40px 20px;
+}
+
+main::before {
+    content: '';
+    position: absolute;
+    top: -72px;
+    left: -72px;
+    width: min(1120px, calc(100vw + 72px));
+    height: calc(100% + 250px);
+    z-index: -1;
+    background: radial-gradient(
+        ellipse 108% 112% at 0% 0%,
+        rgba(var(--bg-rgb), 1) 0%,
+        rgba(var(--bg-rgb), 0.98) 54%,
+        rgba(var(--bg-rgb), 0.88) 66%,
+        rgba(var(--bg-rgb), 0.48) 77%,
+        rgba(var(--bg-rgb), 0) 100%
+    );
+    filter: blur(15px);
+    pointer-events: none;
 }
 
 .header {
@@ -68,46 +92,77 @@ main {
     text-decoration: none;
     display: inline-block;
     position: relative;
-    /* Removed padding/margin hack to prevent layout shift from the pill itself */
     z-index: 1;
 }
 
-/* Superimposed pill background */
+/* Draw a quiet underline without moving the surrounding text. */
 .role a::before, .value a::before {
     content: '';
     position: absolute;
-    top: -2px;
-    bottom: -2px;
-    left: -6px;
-    right: -6px;
-    background-color: var(--accent-bg);
-    border-radius: 6px;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background: currentColor;
+    border-radius: 999px;
     opacity: 0;
-    z-index: -1;
-    transition: opacity 0.2s ease;
 }
 
-.role a:hover::before, .value a:hover::before {
-    opacity: 1;
+.role a:hover::before,
+.role a:focus-visible::before,
+.value a:hover::before,
+.value a:focus-visible::before {
+    opacity: 0.7;
+}
+
+.hover-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    opacity: 0;
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 7px);
+    padding: 4px 7px 4px 5px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    pointer-events: none;
+    transform: translate(-50%, 4px) scale(0.92);
+    transition:
+        opacity 160ms ease-out,
+        transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .favicon {
-    width: 0;
+    width: 14px;
     height: 14px;
-    opacity: 0;
-    margin-right: 0;
-    transition: width 0.2s ease, opacity 0.2s ease, margin-right 0.2s ease;
     object-fit: contain;
-    display: inline-block;
-    vertical-align: middle;
-    position: relative;
-    top: -1px;
 }
 
-.role a:hover .favicon, .value a:hover .favicon {
-    width: 14px;
+.hover-domain {
+    font-size: 0.6875rem;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: normal;
+}
+
+.role a:hover .hover-label,
+.role a:focus-visible .hover-label,
+.value a:hover .hover-label,
+.value a:focus-visible .hover-label {
     opacity: 1;
-    margin-right: 6px;
+    transform: translate(-50%, 0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hover-label {
+        transition: opacity 100ms linear;
+        transform: translate(-50%, 0);
+    }
 }
 
 .section {
@@ -147,4 +202,37 @@ main {
 
 .value {
     font-size: 0.875rem;
+}
+
+.ocean-canvas {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 0;
+    width: 100%;
+    height: clamp(380px, 74vh, 760px);
+    opacity: 0.92;
+    pointer-events: none;
+}
+
+@media (max-width: 600px) {
+    main::before {
+        top: -48px;
+        left: -38px;
+        width: calc(100vw + 38px);
+        height: calc(100% + 220px);
+        background: radial-gradient(
+            ellipse 118% 106% at 0% 0%,
+            rgba(var(--bg-rgb), 1) 0%,
+            rgba(var(--bg-rgb), 0.98) 58%,
+            rgba(var(--bg-rgb), 0.86) 70%,
+            rgba(var(--bg-rgb), 0.44) 82%,
+            rgba(var(--bg-rgb), 0) 100%
+        );
+    }
+
+    .ocean-canvas {
+        height: clamp(360px, 72vh, 680px);
+    }
 }
