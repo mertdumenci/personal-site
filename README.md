@@ -36,6 +36,10 @@ uv run tools/analyze_ocean.py /path/to/captures
 
 There are no environment variables. The `CNAME` file configures the GitHub Pages custom domain. A GitHub Actions workflow tests the site and deploys an explicit four-file artifact from `master`: `CNAME`, `index.html`, `ocean.js`, and `style.css`. The build removes the local-control loader; all tuning and diagnostic tools remain available only in source checkouts and local previews.
 
+## Accessibility
+
+The content uses native landmarks, headings, description lists, and links. Decorative WebGL canvases are excluded from the accessibility tree while their meaningful text remains ordinary HTML. Keyboard focus, increased contrast, forced colors, reduced motion, and reduced transparency receive explicit treatments. The local water controls use native labeled inputs and remain outside the production artifact.
+
 ## Project structure
 
 - `index.html` — page content and metadata
@@ -45,6 +49,8 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 - `local-water-controls.js`, `local-water-controls.css` — local-only in-page tuning inspector; excluded from the GitHub Pages artifact
 - `scripts/build-pages.sh` — assembles and validates the production-only Pages artifact
 - `tests/initial-render.test.mjs` — first-paint ocean initialization regression test
+- `tests/accessibility.test.mjs` — semantic structure, assistive-technology isolation, focus, and user-preference contract
+- `tests/content-feather.test.mjs` — elliptical feather dithering and public contact contract
 - `tests/ocean-filtering.test.mjs` — screen-space wave filtering regression test
 - `tests/ocean-interaction.test.mjs` — passive pointer and touch interaction regression test
 - `tests/water-lab.test.mjs` — visual-harness and production-path regression test

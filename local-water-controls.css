@@ -34,6 +34,13 @@
     display: none;
 }
 
+.water-controls summary:focus-visible,
+.water-controls button:focus-visible,
+.water-controls input:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 3px;
+}
+
 .water-controls summary::before {
     width: 5px;
     height: 5px;
@@ -70,12 +77,25 @@
 }
 
 .water-controls button {
-    padding: 0;
+    min-width: 44px;
+    min-height: 32px;
+    padding: 0 8px;
     color: var(--text-secondary);
     background: none;
     border: 0;
     cursor: pointer;
     font: inherit;
+}
+
+@media (forced-colors: active) {
+    .water-controls summary,
+    .water-controls__panel {
+        background: Canvas;
+        border-color: CanvasText;
+        box-shadow: none;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
 }
 
 .water-controls__rows {
@@ -102,6 +122,7 @@
 
 .water-control input {
     width: 100%;
+    min-height: 24px;
     accent-color: var(--text);
 }
 

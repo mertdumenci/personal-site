@@ -73,6 +73,7 @@
         input.min = String(minimum);
         input.max = String(maximum);
         input.step = String(step);
+        output.setAttribute('for', input.id);
         input.addEventListener('input', () => {
             const value = Number(input.value);
             engine.setParameters({ [name]: value });
