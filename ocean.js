@@ -254,13 +254,15 @@
         animationFrame = 0;
         updateColor();
 
+        startTime = performance.now();
+        lastDrawTime = startTime;
+        draw(startTime);
+
         if (document.hidden || motionQuery.matches) {
-            draw();
-        } else {
-            startTime = performance.now();
-            lastDrawTime = 0;
-            animationFrame = requestAnimationFrame(animate);
+            return;
         }
+
+        animationFrame = requestAnimationFrame(animate);
     }
 
     const resizeObserver = new ResizeObserver(() => draw());

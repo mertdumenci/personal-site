@@ -6,7 +6,8 @@
     <meta name="description" content="Engineer at Apple, building the harness and execution environment for Siri AI.">
     <meta name="author" content="Mert Dumenci">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    
+
+    <link rel="preload" href="ocean.js" as="script" fetchpriority="high">
     <link rel="preconnect" href="https://rsms.me/">
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,6 +16,8 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <canvas class="ocean-canvas" aria-hidden="true"></canvas>
+    <script src="ocean.js"></script>
     <main>
         <header class="header">
             <h1 class="name">Mert Dumenci</h1>
@@ -75,7 +78,5 @@
             </div>
         </section>
     </main>
-    <canvas class="ocean-canvas" aria-hidden="true"></canvas>
-    <script src="ocean.js" defer></script>
 </body>
 </html>

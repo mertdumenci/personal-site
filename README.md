@@ -18,6 +18,14 @@ Then open `http://localhost:8000`.
 
 Docker is not required. If desired, serve the repository with any static web-server image mounted read-only.
 
+## Test
+
+Run the initial-render regression test with:
+
+```sh
+node --test tests/initial-render.test.mjs
+```
+
 ## Configuration
 
 There are no environment variables. The `CNAME` file configures the GitHub Pages custom domain. Deployment uses the `master` branch through GitHub Pages.
@@ -28,6 +36,7 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 - `style.css` — layout and visual styling
 - `ocean.js` — dependency-free WebGL ocean-horizon renderer
 - `wave-lab.html`, `wave-lab.css`, `wave-lab.js` — interactive eight-variant visualization study
+- `tests/initial-render.test.mjs` — first-paint ocean initialization regression test
 - `CNAME` — GitHub Pages custom domain
 
 ## Endpoints
