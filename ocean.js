@@ -34,6 +34,17 @@
 
         out vec4 fragmentColor;
 
+        float bandLimit(float phase) {
+            float footprint = fwidth(phase);
+            return 1.0 - smoothstep(0.28, 1.0, footprint);
+        }
+
+        float gradientNoise(vec2 pixel) {
+            return fract(
+                52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715)))
+            );
+        }
+
         vec3 waveField(vec2 point) {
             const vec2 swellA = vec2(0.17715, 0.98418);
             const vec2 swellB = vec2(-0.46135, 0.88722);
@@ -42,15 +53,19 @@
             float phaseB = dot(point, swellB) * 2.72 - time * 0.43;
             float phaseC = dot(point, swellC) * 5.15 + time * 0.31;
             float phaseD = point.x * 7.5 - point.y * 0.38 - time * 0.27;
+            float weightA = bandLimit(phaseA);
+            float weightB = bandLimit(phaseB);
+            float weightC = bandLimit(phaseC);
+            float weightD = bandLimit(phaseD);
 
-            float height = sin(phaseA) * 0.44
-                + sin(phaseB) * 0.21
-                + sin(phaseC) * 0.085
-                + sin(phaseD) * 0.032;
-            vec2 gradient = cos(phaseA) * 0.44 * 1.48 * swellA
-                + cos(phaseB) * 0.21 * 2.72 * swellB
-                + cos(phaseC) * 0.085 * 5.15 * swellC
-                + cos(phaseD) * 0.032 * vec2(7.5, -0.38);
+            float height = sin(phaseA) * 0.44 * weightA
+                + sin(phaseB) * 0.21 * weightB
+                + sin(phaseC) * 0.085 * weightC
+                + sin(phaseD) * 0.032 * weightD;
+            vec2 gradient = cos(phaseA) * 0.44 * 1.48 * swellA * weightA
+                + cos(phaseB) * 0.21 * 2.72 * swellB * weightB
+                + cos(phaseC) * 0.085 * 5.15 * swellC * weightC
+                + cos(phaseD) * 0.032 * vec2(7.5, -0.38) * weightD;
 
             return vec3(height, gradient);
         }
@@ -98,23 +113,27 @@
             float structureFade = smoothstep(0.0015, 0.085, screenDepth);
             float foreground = smoothstep(0.08, 0.94, screenDepth);
             float crestPhase = logDepth * 12.0 + height * 3.15 + time * 0.2;
-            float ridges = contour(sin(crestPhase), 1.0);
+            float crestWeight = bandLimit(crestPhase);
+            float ridges = contour(sin(crestPhase), 1.0) * crestWeight;
             float shoulderBase = 0.5 + 0.5 * cos(crestPhase + 0.42);
             float shoulderSquared = shoulderBase * shoulderBase;
             float shoulders = shoulderSquared * shoulderSquared
-                * shoulderSquared * shoulderBase;
+                * shoulderSquared * shoulderBase * crestWeight;
             float horizonLine = exp(
                 -abs(uv.y - horizon) * resolution.y * 0.42
             );
 
             float surfaceDarkness = (
-                0.11 + (1.0 - diffuse) * 0.28 - specular * 0.13
+                0.18 + (1.0 - diffuse) * 0.025 - specular * 0.015
             ) * depthFade;
+            float dither = (gradientNoise(gl_FragCoord.xy) - 0.5)
+                / 255.0 * depthFade;
             float alpha = clamp(
                 surfaceDarkness * 0.72
                     + ridges * structureFade * mix(0.19, 0.3, foreground)
                     + shoulders * structureFade * 0.045
-                    + horizonLine * 0.11,
+                    + horizonLine * 0.11
+                    + dither,
                 0.0,
                 0.52
             );
