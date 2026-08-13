@@ -42,6 +42,11 @@ assert.doesNotMatch(
     /\b(?:async|defer)\b/i,
     'ocean.js must run before the browser can paint the parsed page',
 );
+assert.match(
+    scriptTag[0],
+    /\bdata-cfasync=["']false["']/i,
+    'Cloudflare Rocket Loader must not defer the ocean renderer',
+);
 assert.ok(
     html.indexOf(scriptTag[0]) < html.indexOf('<main>'),
     'the ocean must render before page content is parsed',
