@@ -40,10 +40,11 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 
 - `index.html` — page content and metadata
 - `style.css` — layout and visual styling
-- `ocean.js` — dependency-free, screen-space-filtered WebGL ocean-horizon renderer
+- `ocean.js` — dependency-free, screen-space-filtered WebGL ocean with pointer and touch disturbance
 - `wave-lab.html`, `wave-lab.css`, `wave-lab.js` — interactive eight-variant visualization study
 - `tests/initial-render.test.mjs` — first-paint ocean initialization regression test
 - `tests/ocean-filtering.test.mjs` — screen-space wave filtering regression test
+- `tests/ocean-interaction.test.mjs` — passive pointer and touch interaction regression test
 - `tools/analyze_ocean.py` — repeatable visual and frequency-domain artifact audit
 - `CNAME` — GitHub Pages custom domain
 

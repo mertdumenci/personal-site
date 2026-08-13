@@ -32,6 +32,7 @@
         uniform float time;
         uniform vec3 lineColor;
         uniform vec3 backgroundColor;
+        uniform vec3 pointerState;
 
         out vec4 fragmentColor;
 
@@ -86,6 +87,19 @@
             }
 
             float screenDepth = (horizon - uv.y) / horizon;
+            float ripplePhase = 0.0;
+            float rippleEnvelope = 0.0;
+            float rippleWeight = 0.0;
+            float disturbance = 0.0;
+            if (pointerState.z > 0.001) {
+                vec2 pointerDelta = (uv - pointerState.xy) * vec2(aspect, 1.0);
+                float pointerDistance = length(pointerDelta);
+                ripplePhase = pointerDistance * 68.0 - time * 5.2;
+                rippleEnvelope = exp(-pointerDistance * pointerDistance * 34.0)
+                    * pointerState.z * smoothstep(0.0, 0.055, screenDepth);
+                rippleWeight = bandLimit(ripplePhase);
+                disturbance = sin(ripplePhase) * rippleEnvelope * rippleWeight;
+            }
             float perspective = 1.0 / (screenDepth * 1.55 + 0.026);
             float worldX = (uv.x - 0.5) * aspect * perspective;
             float worldZ = perspective;
@@ -95,9 +109,15 @@
             float depthFade = smoothstep(0.012, 0.88, screenDepth);
             float structureFade = smoothstep(0.0015, 0.085, screenDepth);
             float foreground = smoothstep(0.08, 0.94, screenDepth);
-            float crestPhase = logDepth * 12.0 + height * 3.15 + time * 0.2;
+            float crestPhase = logDepth * 12.0 + height * 3.15
+                + time * 0.2 + disturbance * 0.62;
             float crestWeight = bandLimit(crestPhase);
             float ridges = contour(sin(crestPhase), 1.0) * crestWeight;
+            float touchRidges = 0.0;
+            if (pointerState.z > 0.001) {
+                touchRidges = contour(sin(ripplePhase), 1.2)
+                    * rippleEnvelope * rippleWeight;
+            }
             float horizonLine = exp(
                 -abs(uv.y - horizon) * resolution.y * 0.42
             );
@@ -106,6 +126,7 @@
             float alpha = clamp(
                 surfaceDarkness * 0.72
                     + ridges * structureFade * mix(0.19, 0.3, foreground)
+                    + touchRidges * structureFade * 0.065
                     + horizonLine * 0.11,
                 0.0,
                 0.52
@@ -181,6 +202,7 @@
     const timeLocation = gl.getUniformLocation(program, 'time');
     const colorLocation = gl.getUniformLocation(program, 'lineColor');
     const backgroundLocation = gl.getUniformLocation(program, 'backgroundColor');
+    const pointerLocation = gl.getUniformLocation(program, 'pointerState');
     const buffer = gl.createBuffer();
 
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -196,6 +218,15 @@
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const colorQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const targetFrameDuration = 1000 / 60;
+    const activeTouches = new Set();
+    const pointer = {
+        x: 0.5,
+        y: 0.25,
+        targetX: 0.5,
+        targetY: 0.25,
+        strength: 0,
+        targetStrength: 0,
+    };
     let animationFrame = 0;
     let lastDrawTime = 0;
     let startTime = performance.now();
@@ -224,9 +255,70 @@
         gl.clearColor(background[0], background[1], background[2], 1);
     }
 
+    /** Converts a viewport pointer into canvas UV space and activates its wake. */
+    function aimPointer(event, strength) {
+        if (motionQuery.matches) {
+            return;
+        }
+
+        const bounds = canvas.getBoundingClientRect();
+        const x = (event.clientX - bounds.left) / bounds.width;
+        const y = 1 - (event.clientY - bounds.top) / bounds.height;
+        const aspect = bounds.width / bounds.height;
+        const horizonBlend = Math.min(Math.max((aspect - 0.72) / 0.43, 0), 1);
+        const easedBlend = horizonBlend * horizonBlend * (3 - 2 * horizonBlend);
+        const horizon = 0.46 + (0.72 - 0.46) * easedBlend;
+        const overWater = x >= 0 && x <= 1 && y >= 0 && y <= horizon;
+
+        if (!overWater) {
+            pointer.targetStrength = 0;
+            return;
+        }
+
+        pointer.targetX = x;
+        pointer.targetY = y;
+        pointer.targetStrength = strength;
+    }
+
+    /** Handles mouse hover and active touch drags through one pointer path. */
+    function handlePointerMove(event) {
+        if (event.pointerType === 'touch' && !activeTouches.has(event.pointerId)) {
+            return;
+        }
+        aimPointer(event, event.pointerType === 'touch' ? 0.9 : 0.62);
+    }
+
+    /** Starts the stronger contact ripple used for taps and touch drags. */
+    function handlePointerDown(event) {
+        if (event.pointerType === 'touch') {
+            activeTouches.add(event.pointerId);
+        }
+        aimPointer(event, event.pointerType === 'touch' ? 1 : 0.72);
+    }
+
+    /** Releases touch contact while letting the visible wake decay naturally. */
+    function handlePointerEnd(event) {
+        if (event.pointerType === 'touch') {
+            activeTouches.delete(event.pointerId);
+            pointer.targetStrength = 0;
+        }
+    }
+
+    /** Eases input state on the animation clock to avoid cursor-shaped jitter. */
+    function updatePointer() {
+        pointer.x += (pointer.targetX - pointer.x) * 0.18;
+        pointer.y += (pointer.targetY - pointer.y) * 0.18;
+        pointer.strength += (pointer.targetStrength - pointer.strength) * 0.12;
+        if (pointer.strength < 0.0005 && pointer.targetStrength === 0) {
+            pointer.strength = 0;
+        }
+        gl.uniform3f(pointerLocation, pointer.x, pointer.y, pointer.strength);
+    }
+
     /** Draws one frame; animation changes only a GPU uniform. */
     function draw(now = startTime) {
         resize();
+        updatePointer();
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
         gl.uniform1f(timeLocation, (now - startTime) / 1000);
@@ -262,6 +354,19 @@
 
     const resizeObserver = new ResizeObserver(() => draw());
     resizeObserver.observe(canvas);
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    window.addEventListener('pointerdown', handlePointerDown, { passive: true });
+    window.addEventListener('pointerup', handlePointerEnd, { passive: true });
+    window.addEventListener('pointercancel', handlePointerEnd, { passive: true });
+    window.addEventListener('pointerout', (event) => {
+        if (event.pointerType === 'mouse' && event.relatedTarget === null) {
+            pointer.targetStrength = 0;
+        }
+    }, { passive: true });
+    window.addEventListener('blur', () => {
+        pointer.targetStrength = 0;
+        activeTouches.clear();
+    });
     document.addEventListener('visibilitychange', refresh);
     motionQuery.addEventListener('change', refresh);
     colorQuery.addEventListener('change', refresh);
