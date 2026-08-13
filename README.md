@@ -26,9 +26,12 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 
 - `index.html` — page content and metadata
 - `style.css` — layout and visual styling
+- `ocean.js` — dependency-free WebGL ocean-horizon renderer
+- `wave-lab.html`, `wave-lab.css`, `wave-lab.js` — interactive eight-variant visualization study
 - `CNAME` — GitHub Pages custom domain
 
 ## Endpoints
 
 - `https://dumenci.me/` — canonical homepage
 - `https://www.dumenci.me/` — redirects to the canonical homepage
+- `https://dumenci.me/wave-lab.html` — generative visualization study
