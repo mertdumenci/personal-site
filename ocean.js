@@ -32,7 +32,7 @@
         uniform float time;
         uniform vec3 lineColor;
         uniform vec3 backgroundColor;
-        uniform vec3 pointerState;
+        uniform sampler2D disturbanceMap;
 
         out vec4 fragmentColor;
 
@@ -87,19 +87,7 @@
             }
 
             float screenDepth = (horizon - uv.y) / horizon;
-            float ripplePhase = 0.0;
-            float rippleEnvelope = 0.0;
-            float rippleWeight = 0.0;
-            float disturbance = 0.0;
-            if (pointerState.z > 0.001) {
-                vec2 pointerDelta = (uv - pointerState.xy) * vec2(aspect, 1.0);
-                float pointerDistance = length(pointerDelta);
-                ripplePhase = pointerDistance * 68.0 - time * 5.2;
-                rippleEnvelope = exp(-pointerDistance * pointerDistance * 34.0)
-                    * pointerState.z * smoothstep(0.0, 0.055, screenDepth);
-                rippleWeight = bandLimit(ripplePhase);
-                disturbance = sin(ripplePhase) * rippleEnvelope * rippleWeight;
-            }
+            float disturbance = texture(disturbanceMap, uv).r;
             float perspective = 1.0 / (screenDepth * 1.55 + 0.026);
             float worldX = (uv.x - 0.5) * aspect * perspective;
             float worldZ = perspective;
@@ -110,14 +98,9 @@
             float structureFade = smoothstep(0.0015, 0.085, screenDepth);
             float foreground = smoothstep(0.08, 0.94, screenDepth);
             float crestPhase = logDepth * 12.0 + height * 3.15
-                + time * 0.2 + disturbance * 0.62;
+                + time * 0.2 + disturbance * 4.8;
             float crestWeight = bandLimit(crestPhase);
             float ridges = contour(sin(crestPhase), 1.0) * crestWeight;
-            float touchRidges = 0.0;
-            if (pointerState.z > 0.001) {
-                touchRidges = contour(sin(ripplePhase), 1.2)
-                    * rippleEnvelope * rippleWeight;
-            }
             float horizonLine = exp(
                 -abs(uv.y - horizon) * resolution.y * 0.42
             );
@@ -126,7 +109,6 @@
             float alpha = clamp(
                 surfaceDarkness * 0.72
                     + ridges * structureFade * mix(0.19, 0.3, foreground)
-                    + touchRidges * structureFade * 0.065
                     + horizonLine * 0.11,
                 0.0,
                 0.52
@@ -135,6 +117,59 @@
             vec3 color = mix(backgroundColor, lineColor, alpha * 0.92);
 
             fragmentColor = vec4(clamp(color + dither, 0.0, 1.0), 1.0);
+        }
+    `;
+
+    const simulationFragmentSource = `#version 300 es
+        precision highp float;
+
+        uniform sampler2D previousState;
+        uniform vec2 texelSize;
+        uniform vec4 strokePoints;
+        uniform vec2 strokeProperties;
+
+        out vec4 nextState;
+
+        float segmentDistance(vec2 point, vec2 start, vec2 end) {
+            vec2 segment = end - start;
+            float lengthSquared = max(dot(segment, segment), 0.000001);
+            float amount = clamp(dot(point - start, segment) / lengthSquared, 0.0, 1.0);
+            return length(point - mix(start, end, amount));
+        }
+
+        void main() {
+            vec2 uv = gl_FragCoord.xy * texelSize;
+            float current = texture(previousState, uv).r;
+            float previous = texture(previousState, uv).g;
+            float left = texture(previousState, uv - vec2(texelSize.x, 0.0)).r;
+            float right = texture(previousState, uv + vec2(texelSize.x, 0.0)).r;
+            float below = texture(previousState, uv - vec2(0.0, texelSize.y)).r;
+            float above = texture(previousState, uv + vec2(0.0, texelSize.y)).r;
+            float laplacian = left + right + below + above - 4.0 * current;
+            float next = (2.0 * current - previous + laplacian * 0.34) * 0.9984;
+
+            if (strokeProperties.x != 0.0) {
+                float aspect = texelSize.y / texelSize.x;
+                vec2 metric = vec2(aspect, 1.0);
+                vec2 start = strokePoints.xy * metric;
+                vec2 end = strokePoints.zw * metric;
+                vec2 point = uv * metric;
+                float radius = strokeProperties.y;
+                float distanceToStroke = segmentDistance(point, start, end);
+                float body = exp(-distanceToStroke * distanceToStroke / (radius * radius));
+                vec2 direction = end - start;
+                float motion = length(direction);
+                float headDistance = length(point - end);
+                float tailDistance = length(point - start);
+                float head = exp(-headDistance * headDistance / (radius * radius * 0.72));
+                float tail = exp(-tailDistance * tailDistance / (radius * radius * 0.9));
+                float directionalStroke = body * 0.22 + head * 0.86 - tail * min(motion * 9.0, 0.38);
+                next += directionalStroke * strokeProperties.x;
+            }
+
+            float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+            next *= mix(0.94, 1.0, smoothstep(0.0, 0.045, edge));
+            nextState = vec4(next, current, 0.0, 1.0);
         }
     `;
 
@@ -153,11 +188,11 @@
         return shader;
     }
 
-    /** Links the full-screen vertex and procedural-ocean fragment shaders. */
-    function createProgram() {
+    /** Links the full-screen vertex shader with one fragment pass. */
+    function createProgram(source) {
         const program = gl.createProgram();
         const vertexShader = compileShader(gl.VERTEX_SHADER, vertexSource);
-        const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+        const fragmentShader = compileShader(gl.FRAGMENT_SHADER, source);
 
         gl.attachShader(program, vertexShader);
         gl.attachShader(program, fragmentShader);
@@ -189,20 +224,28 @@
         ];
     }
 
-    let program;
+    let renderProgram;
+    let simulationProgram = null;
     try {
-        program = createProgram();
+        renderProgram = createProgram(fragmentSource);
     } catch (error) {
         console.warn(error);
         canvas.remove();
         return;
     }
-    const positionLocation = gl.getAttribLocation(program, 'position');
-    const resolutionLocation = gl.getUniformLocation(program, 'resolution');
-    const timeLocation = gl.getUniformLocation(program, 'time');
-    const colorLocation = gl.getUniformLocation(program, 'lineColor');
-    const backgroundLocation = gl.getUniformLocation(program, 'backgroundColor');
-    const pointerLocation = gl.getUniformLocation(program, 'pointerState');
+    if (gl.getExtension('EXT_color_buffer_float')) {
+        try {
+            simulationProgram = createProgram(simulationFragmentSource);
+        } catch (error) {
+            console.warn(error);
+        }
+    }
+    const positionLocation = gl.getAttribLocation(renderProgram, 'position');
+    const resolutionLocation = gl.getUniformLocation(renderProgram, 'resolution');
+    const timeLocation = gl.getUniformLocation(renderProgram, 'time');
+    const colorLocation = gl.getUniformLocation(renderProgram, 'lineColor');
+    const backgroundLocation = gl.getUniformLocation(renderProgram, 'backgroundColor');
+    const disturbanceLocation = gl.getUniformLocation(renderProgram, 'disturbanceMap');
     const buffer = gl.createBuffer();
 
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -211,24 +254,114 @@
         new Float32Array([-1, -1, 3, -1, -1, 3]),
         gl.STATIC_DRAW,
     );
-    gl.useProgram(program);
+    gl.useProgram(renderProgram);
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+    const simulationWidth = 256;
+    const simulationHeight = 144;
+    const zeroTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, zeroTexture);
+    gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA8,
+        1,
+        1,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        new Uint8Array([0, 0, 0, 255]),
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    /** Creates one floating-point texture and framebuffer for wave state. */
+    function createSimulationTarget(linearFiltering) {
+        const texture = gl.createTexture();
+        const framebuffer = gl.createFramebuffer();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA16F,
+            simulationWidth,
+            simulationHeight,
+            0,
+            gl.RGBA,
+            gl.HALF_FLOAT,
+            null,
+        );
+        gl.texParameteri(
+            gl.TEXTURE_2D,
+            gl.TEXTURE_MIN_FILTER,
+            linearFiltering ? gl.LINEAR : gl.NEAREST,
+        );
+        gl.texParameteri(
+            gl.TEXTURE_2D,
+            gl.TEXTURE_MAG_FILTER,
+            linearFiltering ? gl.LINEAR : gl.NEAREST,
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        gl.framebufferTexture2D(
+            gl.FRAMEBUFFER,
+            gl.COLOR_ATTACHMENT0,
+            gl.TEXTURE_2D,
+            texture,
+            0,
+        );
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+            throw new Error('Ocean simulation framebuffer is incomplete.');
+        }
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        return { texture, framebuffer };
+    }
+
+    /** Builds the ping-pong height field and caches its shader locations. */
+    function createSimulation() {
+        if (!simulationProgram) {
+            return null;
+        }
+
+        const linearFiltering = Boolean(gl.getExtension('OES_texture_float_linear'));
+        const read = createSimulationTarget(linearFiltering);
+        const write = createSimulationTarget(linearFiltering);
+        const simulation = {
+            read,
+            write,
+            positionLocation: gl.getAttribLocation(simulationProgram, 'position'),
+            stateLocation: gl.getUniformLocation(simulationProgram, 'previousState'),
+            texelLocation: gl.getUniformLocation(simulationProgram, 'texelSize'),
+            strokeLocation: gl.getUniformLocation(simulationProgram, 'strokePoints'),
+            propertiesLocation: gl.getUniformLocation(simulationProgram, 'strokeProperties'),
+        };
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        return simulation;
+    }
+
+    let simulation = null;
+    try {
+        simulation = createSimulation();
+    } catch (error) {
+        console.warn(error);
+        simulationProgram = null;
+    }
+    canvas.dataset.simulation = simulation ? 'height-field' : 'unavailable';
 
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const colorQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const targetFrameDuration = 1000 / 60;
-    const activeTouches = new Set();
-    const pointer = {
-        x: 0.5,
-        y: 0.25,
-        targetX: 0.5,
-        targetY: 0.25,
-        strength: 0,
-        targetStrength: 0,
-    };
+    const pointerPositions = new Map();
+    const pendingStrokes = [];
     let animationFrame = 0;
     let lastDrawTime = 0;
+    let lastSimulationTime = performance.now();
+    let simulationAccumulator = 0;
     let startTime = performance.now();
 
     /** Matches the drawing buffer to the responsive CSS box and current DPR. */
@@ -250,17 +383,14 @@
         const styles = getComputedStyle(document.documentElement);
         const line = parseHexColor(styles.getPropertyValue('--text-secondary'));
         const background = parseHexColor(styles.getPropertyValue('--bg'));
+        gl.useProgram(renderProgram);
         gl.uniform3fv(colorLocation, line);
         gl.uniform3fv(backgroundLocation, background);
         gl.clearColor(background[0], background[1], background[2], 1);
     }
 
-    /** Converts a viewport pointer into canvas UV space and activates its wake. */
-    function aimPointer(event, strength) {
-        if (motionQuery.matches) {
-            return;
-        }
-
+    /** Converts a viewport pointer into canvas UV space when it is over water. */
+    function waterPoint(event) {
         const bounds = canvas.getBoundingClientRect();
         const x = (event.clientX - bounds.left) / bounds.width;
         const y = 1 - (event.clientY - bounds.top) / bounds.height;
@@ -271,57 +401,157 @@
         const overWater = x >= 0 && x <= 1 && y >= 0 && y <= horizon;
 
         if (!overWater) {
-            pointer.targetStrength = 0;
+            return null;
+        }
+
+        return { x, y };
+    }
+
+    /** Queues one directional impulse while bounding per-frame GPU work. */
+    function queueStroke(start, end, amplitude, radius) {
+        if (!simulation || motionQuery.matches) {
             return;
         }
 
-        pointer.targetX = x;
-        pointer.targetY = y;
-        pointer.targetStrength = strength;
+        pendingStrokes.push({ start, end, amplitude, radius });
+        if (pendingStrokes.length > 8) {
+            pendingStrokes.splice(0, pendingStrokes.length - 8);
+        }
     }
 
-    /** Handles mouse hover and active touch drags through one pointer path. */
+    /** Injects pointer motion as a short stroke into the persistent height field. */
     function handlePointerMove(event) {
-        if (event.pointerType === 'touch' && !activeTouches.has(event.pointerId)) {
+        if (event.pointerType === 'touch' && !pointerPositions.has(event.pointerId)) {
             return;
         }
-        aimPointer(event, event.pointerType === 'touch' ? 0.9 : 0.62);
+
+        const point = waterPoint(event);
+        const previous = pointerPositions.get(event.pointerId);
+        if (!point) {
+            pointerPositions.delete(event.pointerId);
+            return;
+        }
+
+        if (previous) {
+            const distance = Math.hypot(point.x - previous.x, point.y - previous.y);
+            if (distance > 0.0015) {
+                const touch = event.pointerType === 'touch';
+                const amplitude = touch
+                    ? Math.min(0.09, 0.027 + distance * 0.22)
+                    : Math.min(0.042, 0.009 + distance * 0.1);
+                queueStroke(previous, point, amplitude, touch ? 0.026 : 0.02);
+            }
+        } else if (event.pointerType === 'mouse') {
+            queueStroke(point, point, 0.016, 0.021);
+        }
+
+        pointerPositions.set(event.pointerId, point);
     }
 
-    /** Starts the stronger contact ripple used for taps and touch drags. */
+    /** Starts a tap impulse whose resulting waves persist after release. */
     function handlePointerDown(event) {
-        if (event.pointerType === 'touch') {
-            activeTouches.add(event.pointerId);
+        const point = waterPoint(event);
+        if (!point) {
+            return;
         }
-        aimPointer(event, event.pointerType === 'touch' ? 1 : 0.72);
+
+        pointerPositions.set(event.pointerId, point);
+        const touch = event.pointerType === 'touch';
+        queueStroke(point, point, touch ? 0.082 : 0.05, touch ? 0.03 : 0.024);
     }
 
-    /** Releases touch contact while letting the visible wake decay naturally. */
+    /** Ends input ownership without clearing the simulated water state. */
     function handlePointerEnd(event) {
-        if (event.pointerType === 'touch') {
-            activeTouches.delete(event.pointerId);
-            pointer.targetStrength = 0;
+        pointerPositions.delete(event.pointerId);
+    }
+
+    /** Binds the shared full-screen triangle for one shader program. */
+    function bindGeometry(program, location) {
+        gl.useProgram(program);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.enableVertexAttribArray(location);
+        gl.vertexAttribPointer(location, 2, gl.FLOAT, false, 0, 0);
+    }
+
+    /** Advances the damped wave equation once, optionally injecting a stroke. */
+    function stepSimulation(stroke = null) {
+        if (!simulation || !simulationProgram) {
+            return;
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, simulation.write.framebuffer);
+        gl.viewport(0, 0, simulationWidth, simulationHeight);
+        bindGeometry(simulationProgram, simulation.positionLocation);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, simulation.read.texture);
+        gl.uniform1i(simulation.stateLocation, 0);
+        gl.uniform2f(
+            simulation.texelLocation,
+            1 / simulationWidth,
+            1 / simulationHeight,
+        );
+
+        if (stroke) {
+            gl.uniform4f(
+                simulation.strokeLocation,
+                stroke.start.x,
+                stroke.start.y,
+                stroke.end.x,
+                stroke.end.y,
+            );
+            gl.uniform2f(
+                simulation.propertiesLocation,
+                stroke.amplitude,
+                stroke.radius,
+            );
+        } else {
+            gl.uniform4f(simulation.strokeLocation, 0, 0, 0, 0);
+            gl.uniform2f(simulation.propertiesLocation, 0, 0.02);
+        }
+
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        [simulation.read, simulation.write] = [simulation.write, simulation.read];
+    }
+
+    /** Runs fixed simulation steps so propagation persists independently of input. */
+    function advanceSimulation(now) {
+        if (!simulation || motionQuery.matches) {
+            pendingStrokes.length = 0;
+            lastSimulationTime = now;
+            simulationAccumulator = 0;
+            return;
+        }
+
+        const elapsed = Math.min(Math.max(now - lastSimulationTime, 0), 50);
+        lastSimulationTime = now;
+        simulationAccumulator += elapsed / targetFrameDuration;
+        let steps = Math.min(Math.floor(simulationAccumulator), 3);
+        if (pendingStrokes.length > 0 && steps === 0) {
+            steps = 1;
+        }
+
+        for (let step = 0; step < steps; step += 1) {
+            stepSimulation(pendingStrokes.shift() || null);
+            simulationAccumulator = Math.max(0, simulationAccumulator - 1);
         }
     }
 
-    /** Eases input state on the animation clock to avoid cursor-shaped jitter. */
-    function updatePointer() {
-        pointer.x += (pointer.targetX - pointer.x) * 0.18;
-        pointer.y += (pointer.targetY - pointer.y) * 0.18;
-        pointer.strength += (pointer.targetStrength - pointer.strength) * 0.12;
-        if (pointer.strength < 0.0005 && pointer.targetStrength === 0) {
-            pointer.strength = 0;
-        }
-        gl.uniform3f(pointerLocation, pointer.x, pointer.y, pointer.strength);
-    }
-
-    /** Draws one frame; animation changes only a GPU uniform. */
+    /** Draws one ocean frame from the current persistent simulation state. */
     function draw(now = startTime) {
         resize();
-        updatePointer();
+        advanceSimulation(now);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        bindGeometry(renderProgram, positionLocation);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
         gl.uniform1f(timeLocation, (now - startTime) / 1000);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(
+            gl.TEXTURE_2D,
+            simulation ? simulation.read.texture : zeroTexture,
+        );
+        gl.uniform1i(disturbanceLocation, 0);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
 
@@ -343,6 +573,8 @@
 
         startTime = performance.now();
         lastDrawTime = startTime;
+        lastSimulationTime = startTime;
+        simulationAccumulator = 0;
         draw(startTime);
 
         if (document.hidden || motionQuery.matches) {
@@ -360,12 +592,11 @@
     window.addEventListener('pointercancel', handlePointerEnd, { passive: true });
     window.addEventListener('pointerout', (event) => {
         if (event.pointerType === 'mouse' && event.relatedTarget === null) {
-            pointer.targetStrength = 0;
+            pointerPositions.delete(event.pointerId);
         }
     }, { passive: true });
     window.addEventListener('blur', () => {
-        pointer.targetStrength = 0;
-        activeTouches.clear();
+        pointerPositions.clear();
     });
     document.addEventListener('visibilitychange', refresh);
     motionQuery.addEventListener('change', refresh);
