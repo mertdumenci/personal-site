@@ -27,10 +27,10 @@ assert.match(
     /float ridges = contour\(sin\(crestPhase\), 1\.0\) \* crestWeight/,
     'undersampled crest lines must fade instead of aliasing',
 );
-assert.match(
+assert.doesNotMatch(
     ocean,
-    /shoulderSquared \* shoulderBase \* crestWeight/,
-    'undersampled crest shoulders must fade with their lines',
+    /\bshoulder(?:s|Base|Squared)?\b/,
+    'broad crest halos must not reintroduce amorphous bands',
 );
 assert.match(
     ocean,
@@ -41,6 +41,21 @@ assert.match(
     ocean,
     /gradientNoise\(gl_FragCoord\.xy\)/,
     'dithering must operate at physical-pixel resolution',
+);
+assert.match(
+    ocean,
+    /vec3 color = mix\(backgroundColor, lineColor, alpha \* 0\.92\)/,
+    'the shader must composite the ocean once in final display space',
+);
+assert.match(
+    ocean,
+    /gradientNoise\(gl_FragCoord\.xy\) - 0\.5\) \/ 255\.0/,
+    'final display colors must be dithered by one output-code step',
+);
+assert.match(
+    ocean,
+    /alpha: false/,
+    'the canvas must avoid a second transparent compositing pass',
 );
 assert.match(
     ocean,

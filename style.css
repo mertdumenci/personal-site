@@ -212,7 +212,6 @@ main::before {
     z-index: 0;
     width: 100%;
     height: clamp(380px, 74vh, 760px);
-    opacity: 0.92;
     pointer-events: none;
 }
 

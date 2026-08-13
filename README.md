@@ -4,7 +4,7 @@ Static personal homepage for [dumenci.me](https://dumenci.me), hosted by GitHub 
 
 ## Prerequisites
 
-Any static HTTP server or a modern web browser. No build tool or package installation is required.
+Any static HTTP server or a modern web browser. The site itself has no build or package-install step. Node.js is required only for regression tests, and `uv` is required only for the optional image-analysis tool.
 
 ## Run locally
 
@@ -20,10 +20,16 @@ Docker is not required. If desired, serve the repository with any static web-ser
 
 ## Test
 
-Run the initial-render regression test with:
+Run the regression suite with:
 
 ```sh
 node --test tests/*.test.mjs
+```
+
+To generate contrast-stretched, high-pass, Sobel-edge, and FFT diagnostic views from a directory of raw ocean PNG captures:
+
+```sh
+uv run tools/analyze_ocean.py /path/to/captures
 ```
 
 ## Configuration
@@ -38,6 +44,7 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 - `wave-lab.html`, `wave-lab.css`, `wave-lab.js` — interactive eight-variant visualization study
 - `tests/initial-render.test.mjs` — first-paint ocean initialization regression test
 - `tests/ocean-filtering.test.mjs` — screen-space wave filtering regression test
+- `tools/analyze_ocean.py` — repeatable visual and frequency-domain artifact audit
 - `CNAME` — GitHub Pages custom domain
 
 ## Endpoints

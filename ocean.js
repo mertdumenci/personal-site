@@ -3,7 +3,7 @@
 
     const canvas = document.querySelector('.ocean-canvas');
     const gl = canvas?.getContext('webgl2', {
-        alpha: true,
+        alpha: false,
         antialias: false,
         depth: false,
         powerPreference: 'low-power',
@@ -31,6 +31,7 @@
         uniform vec2 resolution;
         uniform float time;
         uniform vec3 lineColor;
+        uniform vec3 backgroundColor;
 
         out vec4 fragmentColor;
 
@@ -97,28 +98,22 @@
             float crestPhase = logDepth * 12.0 + height * 3.15 + time * 0.2;
             float crestWeight = bandLimit(crestPhase);
             float ridges = contour(sin(crestPhase), 1.0) * crestWeight;
-            float shoulderBase = 0.5 + 0.5 * cos(crestPhase + 0.42);
-            float shoulderSquared = shoulderBase * shoulderBase;
-            float shoulders = shoulderSquared * shoulderSquared
-                * shoulderSquared * shoulderBase * crestWeight;
             float horizonLine = exp(
                 -abs(uv.y - horizon) * resolution.y * 0.42
             );
 
             float surfaceDarkness = 0.195 * depthFade;
-            float dither = (gradientNoise(gl_FragCoord.xy) - 0.5)
-                / 255.0 * depthFade;
             float alpha = clamp(
                 surfaceDarkness * 0.72
                     + ridges * structureFade * mix(0.19, 0.3, foreground)
-                    + shoulders * structureFade * 0.045
-                    + horizonLine * 0.11
-                    + dither,
+                    + horizonLine * 0.11,
                 0.0,
                 0.52
             );
+            float dither = (gradientNoise(gl_FragCoord.xy) - 0.5) / 255.0;
+            vec3 color = mix(backgroundColor, lineColor, alpha * 0.92);
 
-            fragmentColor = vec4(lineColor * alpha, alpha);
+            fragmentColor = vec4(clamp(color + dither, 0.0, 1.0), 1.0);
         }
     `;
 
@@ -185,6 +180,7 @@
     const resolutionLocation = gl.getUniformLocation(program, 'resolution');
     const timeLocation = gl.getUniformLocation(program, 'time');
     const colorLocation = gl.getUniformLocation(program, 'lineColor');
+    const backgroundLocation = gl.getUniformLocation(program, 'backgroundColor');
     const buffer = gl.createBuffer();
 
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -196,8 +192,6 @@
     gl.useProgram(program);
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const colorQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -220,17 +214,19 @@
         }
     }
 
-    /** Reads the active theme color so the shader remains monochromatic. */
-    function updateColor() {
-        const value = getComputedStyle(document.documentElement)
-            .getPropertyValue('--text-secondary');
-        gl.uniform3fv(colorLocation, parseHexColor(value));
+    /** Reads the active theme colors so the final GPU pass stays monochromatic. */
+    function updateColors() {
+        const styles = getComputedStyle(document.documentElement);
+        const line = parseHexColor(styles.getPropertyValue('--text-secondary'));
+        const background = parseHexColor(styles.getPropertyValue('--bg'));
+        gl.uniform3fv(colorLocation, line);
+        gl.uniform3fv(backgroundLocation, background);
+        gl.clearColor(background[0], background[1], background[2], 1);
     }
 
     /** Draws one frame; animation changes only a GPU uniform. */
     function draw(now = startTime) {
         resize();
-        gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
         gl.uniform1f(timeLocation, (now - startTime) / 1000);
@@ -251,7 +247,7 @@
     function refresh() {
         cancelAnimationFrame(animationFrame);
         animationFrame = 0;
-        updateColor();
+        updateColors();
 
         startTime = performance.now();
         lastDrawTime = startTime;
