@@ -39,6 +39,26 @@ assert.match(
     /crestPhase[\s\S]*disturbance \* 4\.8/,
     'simulated height must bend the existing wave crests',
 );
+assert.match(
+    ocean,
+    /float pressureBlob\(vec2 point, vec2 center, float radius\)/,
+    'pointer input must behave as a rounded pressure body',
+);
+assert.match(
+    ocean,
+    /return skirt \* 0\.28 - core/,
+    'the pressure body must depress its core and displace a gentle rim',
+);
+assert.match(
+    ocean,
+    /pressure -= pressureBlob\(point, start, radius\) \* 0\.62/,
+    'moving the pointer must release its previous footprint instead of tethering a crest',
+);
+assert.doesNotMatch(
+    ocean,
+    /segmentDistance/,
+    'the force field must not sweep a line-shaped hook through the water',
+);
 assert.doesNotMatch(
     ocean,
     /uniform vec3 pointerState/,

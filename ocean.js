@@ -125,16 +125,17 @@
 
         uniform sampler2D previousState;
         uniform vec2 texelSize;
-        uniform vec4 strokePoints;
-        uniform vec2 strokeProperties;
+        uniform vec4 pressurePoints;
+        uniform vec2 pressureProperties;
 
         out vec4 nextState;
 
-        float segmentDistance(vec2 point, vec2 start, vec2 end) {
-            vec2 segment = end - start;
-            float lengthSquared = max(dot(segment, segment), 0.000001);
-            float amount = clamp(dot(point - start, segment) / lengthSquared, 0.0, 1.0);
-            return length(point - mix(start, end, amount));
+        float pressureBlob(vec2 point, vec2 center, float radius) {
+            vec2 offset = (point - center) / radius;
+            float distanceSquared = dot(offset, offset);
+            float core = exp(-distanceSquared * 1.35);
+            float skirt = exp(-distanceSquared * 0.34);
+            return skirt * 0.28 - core;
         }
 
         void main() {
@@ -148,23 +149,18 @@
             float laplacian = left + right + below + above - 4.0 * current;
             float next = (2.0 * current - previous + laplacian * 0.34) * 0.9984;
 
-            if (strokeProperties.x != 0.0) {
+            if (pressureProperties.x != 0.0) {
                 float aspect = texelSize.y / texelSize.x;
                 vec2 metric = vec2(aspect, 1.0);
-                vec2 start = strokePoints.xy * metric;
-                vec2 end = strokePoints.zw * metric;
+                vec2 start = pressurePoints.xy * metric;
+                vec2 end = pressurePoints.zw * metric;
                 vec2 point = uv * metric;
-                float radius = strokeProperties.y;
-                float distanceToStroke = segmentDistance(point, start, end);
-                float body = exp(-distanceToStroke * distanceToStroke / (radius * radius));
-                vec2 direction = end - start;
-                float motion = length(direction);
-                float headDistance = length(point - end);
-                float tailDistance = length(point - start);
-                float head = exp(-headDistance * headDistance / (radius * radius * 0.72));
-                float tail = exp(-tailDistance * tailDistance / (radius * radius * 0.9));
-                float directionalStroke = body * 0.22 + head * 0.86 - tail * min(motion * 9.0, 0.38);
-                next += directionalStroke * strokeProperties.x;
+                float radius = pressureProperties.y;
+                float pressure = pressureBlob(point, end, radius);
+                if (length(end - start) > 0.0001) {
+                    pressure -= pressureBlob(point, start, radius) * 0.62;
+                }
+                next += pressure * pressureProperties.x;
             }
 
             float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
@@ -337,8 +333,8 @@
             positionLocation: gl.getAttribLocation(simulationProgram, 'position'),
             stateLocation: gl.getUniformLocation(simulationProgram, 'previousState'),
             texelLocation: gl.getUniformLocation(simulationProgram, 'texelSize'),
-            strokeLocation: gl.getUniformLocation(simulationProgram, 'strokePoints'),
-            propertiesLocation: gl.getUniformLocation(simulationProgram, 'strokeProperties'),
+            pressureLocation: gl.getUniformLocation(simulationProgram, 'pressurePoints'),
+            propertiesLocation: gl.getUniformLocation(simulationProgram, 'pressureProperties'),
         };
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         return simulation;
@@ -357,7 +353,7 @@
     const colorQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const targetFrameDuration = 1000 / 60;
     const pointerPositions = new Map();
-    const pendingStrokes = [];
+    const pendingImpulses = [];
     let animationFrame = 0;
     let lastDrawTime = 0;
     let lastSimulationTime = performance.now();
@@ -407,19 +403,19 @@
         return { x, y };
     }
 
-    /** Queues one directional impulse while bounding per-frame GPU work. */
-    function queueStroke(start, end, amplitude, radius) {
+    /** Queues one pressure-body impulse while bounding per-frame GPU work. */
+    function queuePressureImpulse(start, end, amplitude, radius) {
         if (!simulation || motionQuery.matches) {
             return;
         }
 
-        pendingStrokes.push({ start, end, amplitude, radius });
-        if (pendingStrokes.length > 8) {
-            pendingStrokes.splice(0, pendingStrokes.length - 8);
+        pendingImpulses.push({ start, end, amplitude, radius });
+        if (pendingImpulses.length > 8) {
+            pendingImpulses.splice(0, pendingImpulses.length - 8);
         }
     }
 
-    /** Injects pointer motion as a short stroke into the persistent height field. */
+    /** Relocates a rounded pressure body through the persistent height field. */
     function handlePointerMove(event) {
         if (event.pointerType === 'touch' && !pointerPositions.has(event.pointerId)) {
             return;
@@ -439,10 +435,10 @@
                 const amplitude = touch
                     ? Math.min(0.09, 0.027 + distance * 0.22)
                     : Math.min(0.042, 0.009 + distance * 0.1);
-                queueStroke(previous, point, amplitude, touch ? 0.026 : 0.02);
+                queuePressureImpulse(previous, point, amplitude, touch ? 0.026 : 0.02);
             }
         } else if (event.pointerType === 'mouse') {
-            queueStroke(point, point, 0.016, 0.021);
+            queuePressureImpulse(point, point, 0.016, 0.021);
         }
 
         pointerPositions.set(event.pointerId, point);
@@ -457,7 +453,7 @@
 
         pointerPositions.set(event.pointerId, point);
         const touch = event.pointerType === 'touch';
-        queueStroke(point, point, touch ? 0.082 : 0.05, touch ? 0.03 : 0.024);
+        queuePressureImpulse(point, point, touch ? 0.082 : 0.05, touch ? 0.03 : 0.024);
     }
 
     /** Ends input ownership without clearing the simulated water state. */
@@ -473,8 +469,8 @@
         gl.vertexAttribPointer(location, 2, gl.FLOAT, false, 0, 0);
     }
 
-    /** Advances the damped wave equation once, optionally injecting a stroke. */
-    function stepSimulation(stroke = null) {
+    /** Advances the damped wave equation and optionally injects a pressure body. */
+    function stepSimulation(impulse = null) {
         if (!simulation || !simulationProgram) {
             return;
         }
@@ -491,21 +487,21 @@
             1 / simulationHeight,
         );
 
-        if (stroke) {
+        if (impulse) {
             gl.uniform4f(
-                simulation.strokeLocation,
-                stroke.start.x,
-                stroke.start.y,
-                stroke.end.x,
-                stroke.end.y,
+                simulation.pressureLocation,
+                impulse.start.x,
+                impulse.start.y,
+                impulse.end.x,
+                impulse.end.y,
             );
             gl.uniform2f(
                 simulation.propertiesLocation,
-                stroke.amplitude,
-                stroke.radius,
+                impulse.amplitude,
+                impulse.radius,
             );
         } else {
-            gl.uniform4f(simulation.strokeLocation, 0, 0, 0, 0);
+            gl.uniform4f(simulation.pressureLocation, 0, 0, 0, 0);
             gl.uniform2f(simulation.propertiesLocation, 0, 0.02);
         }
 
@@ -516,7 +512,7 @@
     /** Runs fixed simulation steps so propagation persists independently of input. */
     function advanceSimulation(now) {
         if (!simulation || motionQuery.matches) {
-            pendingStrokes.length = 0;
+            pendingImpulses.length = 0;
             lastSimulationTime = now;
             simulationAccumulator = 0;
             return;
@@ -526,12 +522,12 @@
         lastSimulationTime = now;
         simulationAccumulator += elapsed / targetFrameDuration;
         let steps = Math.min(Math.floor(simulationAccumulator), 3);
-        if (pendingStrokes.length > 0 && steps === 0) {
+        if (pendingImpulses.length > 0 && steps === 0) {
             steps = 1;
         }
 
         for (let step = 0; step < steps; step += 1) {
-            stepSimulation(pendingStrokes.shift() || null);
+            stepSimulation(pendingImpulses.shift() || null);
             simulationAccumulator = Math.max(0, simulationAccumulator - 1);
         }
     }
