@@ -4,18 +4,16 @@ set -eu
 # Assemble a minimal, auditable GitHub Pages artifact without local tooling.
 destination=${1:-_site}
 
+if [ -d "$destination" ] && [ -n "$(find "$destination" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+    echo "Destination must be empty: $destination" >&2
+    exit 1
+fi
 mkdir -p "$destination"
 for asset in \
     CNAME \
     index.html \
     ocean.js \
-    style.css \
-    water-lab.css \
-    water-lab.html \
-    water-lab.js \
-    wave-lab.css \
-    wave-lab.html \
-    wave-lab.js
+    style.css
 do
     cp "$asset" "$destination/$asset"
 done
@@ -26,11 +24,7 @@ sed -i.bak \
     "$destination/index.html"
 rm "$destination/index.html.bak"
 
-if find "$destination" -name 'local-water-controls.*' | grep -q .; then
-    echo 'Local water controls leaked into the Pages artifact.' >&2
-    exit 1
-fi
-if grep -R -q 'LOCAL_WATER_CONTROLS\|local-water-controls' "$destination"; then
-    echo 'A local water controls reference leaked into the Pages artifact.' >&2
+if grep -R -q 'LOCAL_WATER_CONTROLS\|local-water-controls\|water-lab' "$destination"; then
+    echo 'Local water tooling leaked into the Pages artifact.' >&2
     exit 1
 fi

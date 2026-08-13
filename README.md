@@ -34,15 +34,14 @@ uv run tools/analyze_ocean.py /path/to/captures
 
 ## Configuration
 
-There are no environment variables. The `CNAME` file configures the GitHub Pages custom domain. A GitHub Actions workflow tests the site and deploys an explicit artifact from `master`. The artifact build removes the local water-control loader and excludes its JavaScript and CSS, so those tools exist only in source checkouts and local previews.
+There are no environment variables. The `CNAME` file configures the GitHub Pages custom domain. A GitHub Actions workflow tests the site and deploys an explicit four-file artifact from `master`: `CNAME`, `index.html`, `ocean.js`, and `style.css`. The build removes the local-control loader; all tuning and diagnostic tools remain available only in source checkouts and local previews.
 
 ## Project structure
 
 - `index.html` — page content and metadata
 - `style.css` — layout, visual styling, and WebKit rubber-band edge colors
 - `ocean.js` — WebGL ocean plus a 120 Hz, GPU-only shallow-water solver; floating-point textures retain height and horizontal momentum while broad pointer-pressure bodies create smooth persistent divots, inject displacement, and transfer velocity
-- `wave-lab.html`, `wave-lab.css`, `wave-lab.js` — interactive eight-variant visualization study
-- `water-lab.html`, `water-lab.css`, `water-lab.js` — production-solver laboratory with repeatable click, hover, mouse-drag, touch-drag, and stress scenarios plus height and velocity views
+- `water-lab.html`, `water-lab.css`, `water-lab.js` — local production-solver laboratory with repeatable click, hover, mouse-drag, touch-drag, and stress scenarios plus height and velocity views
 - `local-water-controls.js`, `local-water-controls.css` — local-only in-page tuning inspector; excluded from the GitHub Pages artifact
 - `scripts/build-pages.sh` — assembles and validates the production-only Pages artifact
 - `tests/initial-render.test.mjs` — first-paint ocean initialization regression test
@@ -50,14 +49,12 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 - `tests/ocean-interaction.test.mjs` — passive pointer and touch interaction regression test
 - `tests/water-lab.test.mjs` — visual-harness and production-path regression test
 - `tests/local-water-controls.test.mjs` — local-origin gate and inspector-control contract
-- `tests/pages-artifact.test.mjs` — proves local tuning assets and references cannot enter deployment
+- `tests/pages-artifact.test.mjs` — proves the deployment contains exactly the four intended production files
 - `.github/workflows/pages.yml` — tests, builds, and deploys the isolated Pages artifact
 - `tools/analyze_ocean.py` — repeatable visual and frequency-domain artifact audit
 - `CNAME` — GitHub Pages custom domain
 
-## Endpoints
+## Production endpoint
 
 - `https://dumenci.me/` — canonical homepage
 - `https://www.dumenci.me/` — redirects to the canonical homepage
-- `https://dumenci.me/wave-lab.html` — generative visualization study
-- `https://dumenci.me/water-lab.html` — shallow-water solver tuning and performance laboratory

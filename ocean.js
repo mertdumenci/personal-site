@@ -542,8 +542,6 @@
     function createBody(event, point) {
         const touch = event.pointerType === 'touch';
         const body = {
-            pointerId: event.pointerId,
-            pointerType: event.pointerType,
             target: { ...point },
             position: { ...point },
             previousPosition: { ...point },

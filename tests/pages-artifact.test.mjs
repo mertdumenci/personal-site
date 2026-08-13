@@ -13,18 +13,22 @@ try {
     await run('./scripts/build-pages.sh', [destination], { cwd: root });
     const files = await readdir(destination);
     const html = await readFile(join(destination, 'index.html'), 'utf8');
+    const expectedFiles = ['CNAME', 'index.html', 'ocean.js', 'style.css'];
 
-    assert.ok(files.includes('index.html'), 'the Pages artifact must contain its entrypoint');
-    assert.ok(files.includes('CNAME'), 'the Pages artifact must retain the custom domain');
-    assert.ok(files.includes('ocean.js'), 'the Pages artifact must contain the ocean renderer');
-    assert.ok(
-        !files.some((file) => file.startsWith('local-water-controls.')),
-        'local inspector assets must never enter the Pages artifact',
+    assert.deepEqual(
+        files.sort(),
+        expectedFiles.sort(),
+        'the Pages artifact must contain only production runtime files',
     );
     assert.doesNotMatch(
         html,
-        /LOCAL_WATER_CONTROLS|local-water-controls/,
-        'the deployed entrypoint must not reference the local inspector',
+        /LOCAL_WATER_CONTROLS|local-water-controls|water-lab/,
+        'the deployed entrypoint must not reference local water tooling',
+    );
+    await assert.rejects(
+        run('./scripts/build-pages.sh', [destination], { cwd: root }),
+        /Destination must be empty/,
+        'the artifact builder must not silently retain stale files',
     );
 } finally {
     await rm(destination, { recursive: true, force: true });
