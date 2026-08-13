@@ -91,6 +91,11 @@ assert.match(
 );
 assert.match(
     ocean,
+    /disturbanceScale: 52/,
+    'the broad low-amplitude pressure field must remain visibly coupled',
+);
+assert.match(
+    ocean,
     /const simulationStepDuration = 1000 \/ 120/,
     'physics must run on a fixed 120 Hz clock independent of presentation FPS',
 );

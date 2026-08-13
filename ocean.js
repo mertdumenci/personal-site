@@ -372,7 +372,7 @@
         bodyPressure: 0.9,
         surfaceSmoothing: 0.006,
         clickGrowth: 0.9,
-        disturbanceScale: 15,
+        disturbanceScale: 52,
     });
     const parameters = { ...defaultParameters };
     const zeroTexture = gl.createTexture();
@@ -790,7 +790,7 @@
         bodyPressure: [0.2, 1.4],
         surfaceSmoothing: [0, 0.04],
         clickGrowth: [0.4, 1.8],
-        disturbanceScale: [5, 18],
+        disturbanceScale: [5, 72],
     });
 
     /** Applies bounded laboratory parameters without destabilizing the solver. */
