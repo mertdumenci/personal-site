@@ -4,14 +4,14 @@ Static personal homepage for [dumenci.me](https://dumenci.me), hosted by GitHub 
 
 ## Prerequisites
 
-Any static HTTP server or a modern web browser. The site itself has no build or package-install step. Node.js is required only for regression tests, and `uv` is required only for the optional image-analysis tool.
+Any static HTTP server and a modern browser with WebGL 2. The fluid interaction uses floating-point render targets when `EXT_color_buffer_float` is available and otherwise leaves the ocean presentation non-interactive. The site has no build or package-install step. Node.js is required only for regression tests, and `uv` is required only for the optional image-analysis tool.
 
 ## Run locally
 
 From the repository root:
 
 ```sh
-ruby -run -e httpd . -p 8000
+uv run python -m http.server 8000
 ```
 
 Then open `http://localhost:8000`.
@@ -40,11 +40,13 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 
 - `index.html` — page content and metadata
 - `style.css` — layout, visual styling, and WebKit rubber-band edge colors
-- `ocean.js` — screen-space-filtered WebGL ocean with a persistent GPU finite-difference height field and rounded pressure-body interaction
+- `ocean.js` — WebGL ocean plus a 120 Hz, GPU-only shallow-water solver; floating-point textures retain height and horizontal momentum while pointer bodies inject displacement and velocity
 - `wave-lab.html`, `wave-lab.css`, `wave-lab.js` — interactive eight-variant visualization study
+- `water-lab.html`, `water-lab.css`, `water-lab.js` — production-solver laboratory with repeatable click, hover, mouse-drag, touch-drag, and stress scenarios plus height and velocity views
 - `tests/initial-render.test.mjs` — first-paint ocean initialization regression test
 - `tests/ocean-filtering.test.mjs` — screen-space wave filtering regression test
 - `tests/ocean-interaction.test.mjs` — passive pointer and touch interaction regression test
+- `tests/water-lab.test.mjs` — visual-harness and production-path regression test
 - `tools/analyze_ocean.py` — repeatable visual and frequency-domain artifact audit
 - `CNAME` — GitHub Pages custom domain
 
@@ -53,3 +55,4 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 - `https://dumenci.me/` — canonical homepage
 - `https://www.dumenci.me/` — redirects to the canonical homepage
 - `https://dumenci.me/wave-lab.html` — generative visualization study
+- `https://dumenci.me/water-lab.html` — shallow-water solver tuning and performance laboratory

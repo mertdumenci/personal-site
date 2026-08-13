@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Shallow-water laboratory — Mert Dumenci</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://rsms.me/">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <link rel="stylesheet" href="water-lab.css?v=20260812.2">
+</head>
+<body>
+    <canvas class="ocean-canvas" aria-label="Interactive shallow-water simulation"></canvas>
+    <script src="ocean.js?v=20260812.7" data-ocean-lab data-cfasync="false"></script>
+
+    <aside class="lab-panel">
+        <header class="lab-header">
+            <div>
+                <p class="eyebrow">GPU shallow-water laboratory</p>
+                <h1>Fluid body coupling</h1>
+            </div>
+            <button class="quiet-button reset-fluid" type="button">Reset water</button>
+        </header>
+
+        <p class="lab-description">
+            The production renderer and solver, with repeatable body-entry,
+            click-growth, hover, and pan scenarios.
+        </p>
+
+        <dl class="metrics" aria-live="polite">
+            <div><dt>Presentation</dt><dd data-metric="fps">—</dd></div>
+            <div><dt>Physics</dt><dd data-metric="physics">—</dd></div>
+            <div><dt>State</dt><dd data-metric="state">—</dd></div>
+        </dl>
+
+        <section class="lab-section">
+            <h2>Repeatable scenarios</h2>
+            <div class="scenario-grid">
+                <button type="button" data-scenario="click">Growing click</button>
+                <button type="button" data-scenario="hover">Hover pass</button>
+                <button type="button" data-scenario="pan">Immersed pan</button>
+                <button type="button" data-scenario="touch">Touch drag</button>
+                <button type="button" data-scenario="stress">Stress field</button>
+            </div>
+            <p class="scenario-status" aria-live="polite">Ready</p>
+        </section>
+
+        <section class="lab-section">
+            <h2>View</h2>
+            <div class="view-grid" role="group" aria-label="Simulation view">
+                <button type="button" data-view="0" aria-pressed="true">Ocean</button>
+                <button type="button" data-view="1" aria-pressed="false">Height</button>
+                <button type="button" data-view="2" aria-pressed="false">Velocity</button>
+            </div>
+        </section>
+
+        <section class="lab-section physics-controls">
+            <div class="section-heading">
+                <h2>Physics</h2>
+                <button class="text-button reset-parameters" type="button">Defaults</button>
+            </div>
+            <div class="control-list"></div>
+        </section>
+    </aside>
+
+    <p class="interaction-hint">Move, click, or drag directly through the water.</p>
+    <script src="water-lab.js?v=20260812.2" defer></script>
+</body>
+</html>
