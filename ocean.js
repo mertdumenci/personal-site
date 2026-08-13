@@ -749,7 +749,7 @@
     }
 
     /** Draws one ocean frame from the current persistent simulation state. */
-    function draw(now = startTime) {
+    function draw(now = performance.now()) {
         resize();
         advanceSimulation(now);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -871,7 +871,7 @@
         animationFrame = requestAnimationFrame(animate);
     }
 
-    const resizeObserver = new ResizeObserver(() => draw());
+    const resizeObserver = new ResizeObserver(() => draw(performance.now()));
     resizeObserver.observe(canvas);
     window.addEventListener('pointermove', handlePointerMove, { passive: true });
     window.addEventListener('pointerdown', handlePointerDown, { passive: true });

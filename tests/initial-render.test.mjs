@@ -68,6 +68,16 @@ assert.ok(
     scheduledDraw < 0 || initialDraw < scheduledDraw,
     'the initial draw must happen before animation is scheduled',
 );
+assert.match(
+    ocean,
+    /function draw\(now = performance\.now\(\)\)/,
+    'unscheduled draws must use the current clock rather than the startup frame',
+);
+assert.match(
+    ocean,
+    /new ResizeObserver\(\(\) => draw\(performance\.now\(\)\)\)/,
+    'live resizing must redraw the current animated ocean frame',
+);
 
 const canvasRule = css.match(/\.ocean-canvas\s*\{([^}]+)\}/);
 assert.ok(canvasRule, 'style.css must define the ocean canvas');
