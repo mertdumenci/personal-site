@@ -30,12 +30,20 @@ function functionBody(source, name) {
     assert.fail(`Could not parse ${name}`);
 }
 
-const scriptTag = html.match(/<script\b[^>]*\bsrc=["']ocean\.js["'][^>]*><\/script>/i);
+const scriptTag = html.match(/<script\b[^>]*\bsrc=["']ocean\.js\?v=([^"']+)["'][^>]*><\/script>/i);
 assert.ok(scriptTag, 'index.html must load ocean.js');
+const preloadTag = html.match(
+    /<link\b[^>]*\brel=["']preload["'][^>]*\bhref=["']ocean\.js\?v=([^"']+)["'][^>]*>/i,
+);
+assert.ok(
+    preloadTag,
+    'ocean.js must begin loading from the document head',
+);
+assert.equal(preloadTag[1], scriptTag[1], 'the preload and script versions must match');
 assert.match(
     html,
-    /<link\b[^>]*\brel=["']preload["'][^>]*\bhref=["']ocean\.js["'][^>]*>/i,
-    'ocean.js must begin loading from the document head',
+    /<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']style\.css\?v=[^"']+["'][^>]*>/i,
+    'style.css must be cache-versioned with the renderer',
 );
 assert.doesNotMatch(
     scriptTag[0],
