@@ -21,13 +21,38 @@ assert.match(
 );
 assert.match(
     ocean,
-    /float laplacian = left \+ right \+ below \+ above - 4\.0 \* current/,
-    'the height field must propagate through a finite-difference Laplacian',
+    /vec3 center = texture\(previousState, uv\)\.rgb/,
+    'the fluid texture must carry surface height and two-axis velocity',
 );
 assert.match(
     ocean,
-    /2\.0 \* current - previous \+ laplacian \* 0\.34\) \* 0\.9984/,
-    'the simulation must carry momentum forward with gradual damping',
+    /vec2 heightGradient = vec2\([\s\S]*right\.r - left\.r[\s\S]*above\.r - below\.r/,
+    'gravity must act on a finite-difference surface gradient',
+);
+assert.match(
+    ocean,
+    /float fluxDivergence = \([\s\S]*rightFlux - leftFlux \+ aboveFlux - belowFlux/,
+    'the continuity equation must evolve height from horizontal flux',
+);
+assert.match(
+    ocean,
+    /vec2 nextVelocity = velocity[\s\S]*- gravity \* heightGradient \* timestep[\s\S]*\+ viscosity \* velocityLaplacian \* timestep/,
+    'the momentum equation must include pressure acceleration and viscosity',
+);
+assert.match(
+    ocean,
+    /uniform vec4 currentBodies\[maximumBodies\]/,
+    'the solver must accept immersed bodies without CPU texture uploads',
+);
+assert.match(
+    ocean,
+    /nextVelocity = mix\(nextVelocity, bodyVelocity, entrainment\)/,
+    'moving bodies must transfer horizontal momentum into the fluid',
+);
+assert.match(
+    ocean,
+    /displacedSurface\(point, body\)[\s\S]*- displacedSurface\(point, previousBody\)/,
+    'body growth must displace water from its changing immersed volume',
 );
 assert.match(
     ocean,
@@ -36,28 +61,23 @@ assert.match(
 );
 assert.match(
     ocean,
-    /crestPhase[\s\S]*disturbance \* 4\.8/,
+    /crestPhase[\s\S]*disturbance \* disturbanceScale/,
     'simulated height must bend the existing wave crests',
 );
 assert.match(
     ocean,
-    /float pressureBlob\(vec2 point, vec2 center, float radius\)/,
-    'pointer input must behave as a rounded pressure body',
+    /const simulationStepDuration = 1000 \/ 120/,
+    'physics must run on a fixed 120 Hz clock independent of presentation FPS',
 );
 assert.match(
     ocean,
-    /return skirt \* 0\.28 - core/,
-    'the pressure body must depress its core and displace a gentle rim',
-);
-assert.match(
-    ocean,
-    /pressure -= pressureBlob\(point, start, radius\) \* 0\.62/,
-    'moving the pointer must release its previous footprint instead of tethering a crest',
+    /canvas\.dataset\.simulation = simulation \? 'shallow-water' : 'unavailable'/,
+    'the runtime must report the physical solver rather than the old height field',
 );
 assert.doesNotMatch(
     ocean,
-    /segmentDistance/,
-    'the force field must not sweep a line-shaped hook through the water',
+    /2\.0 \* current - previous/,
+    'the old scalar ripple equation must not masquerade as fluid dynamics',
 );
 assert.doesNotMatch(
     ocean,
@@ -86,8 +106,8 @@ assert.match(
 );
 assert.match(
     ocean,
-    /function handlePointerEnd\(event\) \{\s*pointerPositions\.delete\(event\.pointerId\);\s*\}/,
-    'lifting a pointer must release input without clearing water state',
+    /function handlePointerEnd\(event\)[\s\S]*body\.pressed = false;[\s\S]*body\.present = false/,
+    'lifting a touch must remove only its body while leaving fluid state intact',
 );
 assert.match(css, /\.ocean-canvas\s*\{[^}]*pointer-events:\s*none/s);
 assert.doesNotMatch(css, /touch-action:\s*none/, 'the ocean must not disable mobile scrolling');
