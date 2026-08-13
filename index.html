@@ -7,7 +7,7 @@
     <meta name="author" content="Mert Dumenci">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <link rel="preload" href="ocean.js?v=20260812.9" as="script" fetchpriority="high">
+    <link rel="preload" href="ocean.js?v=20260812.10" as="script" fetchpriority="high">
     <link rel="preconnect" href="https://rsms.me/">
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +17,7 @@
 </head>
 <body>
     <canvas class="ocean-canvas" aria-hidden="true"></canvas>
-    <script src="ocean.js?v=20260812.9" data-cfasync="false"></script>
+    <script src="ocean.js?v=20260812.10" data-cfasync="false"></script>
     <main>
         <header class="header">
             <h1 class="name">Mert Dumenci</h1>
@@ -78,5 +78,25 @@
             </div>
         </section>
     </main>
+    <!-- LOCAL_WATER_CONTROLS_START -->
+    <script>
+        (() => {
+            const local = location.protocol === 'file:'
+                || location.hostname === 'localhost'
+                || location.hostname === '127.0.0.1';
+            if (!local) return;
+
+            const style = document.createElement('link');
+            style.rel = 'stylesheet';
+            style.href = 'local-water-controls.css?v=20260812.1';
+            document.head.append(style);
+
+            const controls = document.createElement('script');
+            controls.src = 'local-water-controls.js?v=20260812.1';
+            controls.defer = true;
+            document.body.append(controls);
+        })();
+    </script>
+    <!-- LOCAL_WATER_CONTROLS_END -->
 </body>
 </html>

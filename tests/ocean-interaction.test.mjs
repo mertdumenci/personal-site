@@ -71,7 +71,7 @@ assert.match(
 );
 assert.match(
     ocean,
-    /baseRadius: touch \? 0\.055 : 0\.04/,
+    /body\.radius = body\.baseRadius \* parameters\.pointerSize \* body\.presence/,
     'touch and hover bodies must have a deliberately broad footprint',
 );
 assert.doesNotMatch(

@@ -3,6 +3,9 @@
 
     const script = document.currentScript;
     const labMode = script?.hasAttribute('data-ocean-lab') ?? false;
+    const localMode = location.protocol === 'file:'
+        || location.hostname === 'localhost'
+        || location.hostname === '127.0.0.1';
     const canvas = document.querySelector('.ocean-canvas');
     const gl = canvas?.getContext('webgl2', {
         alpha: false,
@@ -373,6 +376,8 @@
         surfaceSmoothing: 0.006,
         clickGrowth: 0.9,
         disturbanceScale: 52,
+        pointerSize: 1,
+        pointerDepth: 1,
     });
     const parameters = { ...defaultParameters };
     const zeroTexture = gl.createTexture();
@@ -565,6 +570,9 @@
 
     /** Moves an immersed body; the solver transfers its momentum to the fluid. */
     function handlePointerMove(event) {
+        if (event.target instanceof Element && event.target.closest('.water-controls')) {
+            return;
+        }
         if (event.pointerType === 'touch' && !bodies.has(event.pointerId)) {
             return;
         }
@@ -586,6 +594,9 @@
 
     /** Grows the immersed body so its added volume launches a physical wave. */
     function handlePointerDown(event) {
+        if (event.target instanceof Element && event.target.closest('.water-controls')) {
+            return;
+        }
         const point = waterPoint(event);
         if (!point) {
             return;
@@ -637,9 +648,9 @@
             body.clickEnergy *= Math.exp(-2.8 * timestep);
 
             const expansion = Math.max(body.pressAmount, body.clickEnergy);
-            body.radius = body.baseRadius * body.presence
+            body.radius = body.baseRadius * parameters.pointerSize * body.presence
                 * (1 + parameters.clickGrowth * expansion);
-            body.depth = body.baseDepth * body.presence
+            body.depth = body.baseDepth * parameters.pointerDepth * body.presence
                 * (1 + 0.65 * expansion);
 
             const expired = !body.present
@@ -791,6 +802,8 @@
         surfaceSmoothing: [0, 0.04],
         clickGrowth: [0.4, 1.8],
         disturbanceScale: [5, 72],
+        pointerSize: [0.5, 2.5],
+        pointerDepth: [0.35, 2.5],
     });
 
     /** Applies bounded laboratory parameters without destabilizing the solver. */
@@ -885,7 +898,7 @@
     motionQuery.addEventListener('change', refresh);
     colorQuery.addEventListener('change', refresh);
 
-    if (labMode) {
+    if (labMode || localMode) {
         Object.defineProperty(window, 'oceanLab', {
             configurable: true,
             value: Object.freeze({

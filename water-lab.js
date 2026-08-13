@@ -27,6 +27,8 @@
         ['surfaceSmoothing', 'Ripple smoothing', 0.001],
         ['clickGrowth', 'Click growth', 0.01],
         ['disturbanceScale', 'Visual gain', 0.1],
+        ['pointerSize', 'Pointer size', 0.01],
+        ['pointerDepth', 'Pointer depth', 0.01],
     ];
     const inputByName = new Map();
 
