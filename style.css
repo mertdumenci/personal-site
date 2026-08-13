@@ -5,6 +5,7 @@
     --text-secondary: #555555;
     --accent: #2563eb;
     --border: #d4d4d4;
+    --ocean-floor: #e9e9e9;
     --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 }
 
@@ -16,6 +17,7 @@
         --text-secondary: #888888;
         --accent: #60a5fa;
         --border: #333333;
+        --ocean-floor: #202020;
     }
 }
 
@@ -26,6 +28,14 @@
 }
 
 html {
+    /*
+     * WebKit samples opposite edges of a repeating root background during
+     * rubber-band overscroll. This keeps the top attached to the page color
+     * while the bottom continues the ocean's resting foreground tone.
+     */
+    background-color: var(--bg);
+    background-image: linear-gradient(var(--ocean-floor), var(--bg));
+    background-repeat: repeat;
     font-family: 'Inter', system-ui, sans-serif;
     font-feature-settings: 'ss01' 1, 'cv01' 1, 'liga' 1, 'calt' 1;
     -webkit-font-smoothing: antialiased;

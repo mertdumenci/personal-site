@@ -81,5 +81,15 @@ assert.match(
     /main\s*\{[^}]*-webkit-user-select:\s*text;[^}]*user-select:\s*text/s,
     'the content must retain normal text selection on touch devices',
 );
+assert.match(
+    css,
+    /--ocean-floor:\s*#202020/,
+    'dark-mode overscroll must match the resting ocean foreground',
+);
+assert.match(
+    css,
+    /html\s*\{[^}]*background-image:\s*linear-gradient\(var\(--ocean-floor\), var\(--bg\)\);[^}]*background-repeat:\s*repeat/s,
+    'the root background edges must continue the ocean below and page above',
+);
 
 console.log('Ocean pointer and touch interaction contract passed.');
