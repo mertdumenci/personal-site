@@ -43,5 +43,12 @@ assert.match(
     /engine\.getMetrics\(\)/,
     'the harness must report presentation and solver rates without GPU readback',
 );
+for (const control of ['bodyPressure', 'surfaceSmoothing']) {
+    assert.match(
+        script,
+        new RegExp(`\\['${control}',`),
+        `${control} must remain directly tunable in the visual laboratory`,
+    );
+}
 
 console.log('Shallow-water visual laboratory contract passed.');

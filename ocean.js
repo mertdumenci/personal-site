@@ -82,7 +82,7 @@
             vec3 fluid = texture(disturbanceMap, uv).rgb;
 
             if (debugView == 1) {
-                float signedHeight = clamp(0.5 + fluid.r * 6.0, 0.0, 1.0);
+                float signedHeight = clamp(0.5 + fluid.r * 18.0, 0.0, 1.0);
                 fragmentColor = vec4(vec3(signedHeight), 1.0);
                 return;
             }
@@ -147,6 +147,7 @@
         uniform vec2 texelSize;
         uniform vec4 physics;
         uniform vec4 coupling;
+        uniform float surfaceSmoothing;
         uniform vec4 currentBodies[maximumBodies];
         uniform vec4 previousBodies[maximumBodies];
         uniform int bodyCount;
@@ -160,9 +161,20 @@
 
             vec2 offset = (point - body.xy) / body.z;
             float distanceSquared = dot(offset, offset);
-            float core = exp(-distanceSquared * 1.35);
-            float skirt = exp(-distanceSquared * 0.34);
-            return (skirt * 0.252 - core) * body.w;
+            float core = exp(-distanceSquared * 0.72);
+            float skirt = exp(-distanceSquared * 0.12);
+            return (skirt / 6.0 - core) * body.w;
+        }
+
+        vec2 pressureGradient(vec2 point, vec4 body) {
+            if (body.z <= 0.00001 || body.w <= 0.00001) {
+                return vec2(0.0);
+            }
+
+            float width = body.z * 1.34;
+            vec2 offset = (point - body.xy) / width;
+            float potential = exp(-dot(offset, offset) * 0.64) * body.w;
+            return -1.28 * potential * offset / width;
         }
 
         void main() {
@@ -179,7 +191,7 @@
             float viscosity = coupling.x;
             float bodyCoupling = coupling.y;
             float bodyDisplacement = coupling.z;
-            float growthCoupling = coupling.w;
+            float bodyPressure = coupling.w;
             float cellSize = texelSize.y;
             float inverseSpan = 0.5 / cellSize;
 
@@ -218,7 +230,7 @@
                 vec2 offset = point - body.xy;
                 float radius = max(body.z, 0.00001);
                 float distanceSquared = dot(offset, offset) / (radius * radius);
-                float contact = exp(-distanceSquared * 1.65);
+                float contact = exp(-distanceSquared * 0.82);
                 float immersion = smoothstep(0.0, 0.014, body.w);
                 vec2 bodyVelocity = (body.xy - previousBody.xy) / timestep;
                 float bodySpeed = length(bodyVelocity);
@@ -236,13 +248,14 @@
                     displacedSurface(point, body)
                     - displacedSurface(point, previousBody)
                 ) * bodyDisplacement;
-
-                float growthRate = max(body.z - previousBody.z, 0.0) / timestep;
-                float distanceToBody = max(length(offset), radius * 0.08);
-                vec2 radialDirection = offset / distanceToBody;
-                nextVelocity += radialDirection * growthRate * contact
-                    * growthCoupling * immersion;
+                nextVelocity -= gravity * pressureGradient(point, body)
+                    * bodyPressure * timestep;
             }
+
+            float neighboringHeight = 0.25 * (
+                left.r + right.r + below.r + above.r
+            );
+            nextHeight = mix(nextHeight, neighboringHeight, surfaceSmoothing);
 
             float speed = length(nextVelocity);
             if (speed > 0.24) {
@@ -352,13 +365,14 @@
     const defaultParameters = Object.freeze({
         gravity: 1.45,
         meanDepth: 0.04,
-        viscosity: 0.00045,
-        drag: 0.24,
-        bodyCoupling: 0.14,
-        bodyDisplacement: 0.7,
-        growthCoupling: 0.2,
-        clickGrowth: 1.5,
-        disturbanceScale: 18,
+        viscosity: 0.00058,
+        drag: 0.28,
+        bodyCoupling: 0.09,
+        bodyDisplacement: 0.3,
+        bodyPressure: 0.9,
+        surfaceSmoothing: 0.006,
+        clickGrowth: 0.9,
+        disturbanceScale: 15,
     });
     const parameters = { ...defaultParameters };
     const zeroTexture = gl.createTexture();
@@ -440,6 +454,7 @@
             texelLocation: gl.getUniformLocation(simulationProgram, 'texelSize'),
             physicsLocation: gl.getUniformLocation(simulationProgram, 'physics'),
             couplingLocation: gl.getUniformLocation(simulationProgram, 'coupling'),
+            smoothingLocation: gl.getUniformLocation(simulationProgram, 'surfaceSmoothing'),
             currentBodiesLocation: gl.getUniformLocation(simulationProgram, 'currentBodies[0]'),
             previousBodiesLocation: gl.getUniformLocation(simulationProgram, 'previousBodies[0]'),
             bodyCountLocation: gl.getUniformLocation(simulationProgram, 'bodyCount'),
@@ -527,8 +542,8 @@
             target: { ...point },
             position: { ...point },
             previousPosition: { ...point },
-            baseRadius: touch ? 0.034 : 0.021,
-            baseDepth: touch ? 0.016 : 0.01,
+            baseRadius: touch ? 0.055 : 0.04,
+            baseDepth: touch ? 0.01 : 0.0068,
             radius: 0,
             previousRadius: 0,
             depth: 0,
@@ -612,20 +627,20 @@
             body.position.y += (body.target.y - body.position.y) * positionResponse;
 
             const presenceTarget = body.present ? 1 : 0;
-            const presenceRate = body.present ? 20 : 7;
+            const presenceRate = body.present ? 12 : 6;
             body.presence += (presenceTarget - body.presence)
                 * (1 - Math.exp(-presenceRate * timestep));
             const pressTarget = body.pressed ? 1 : 0;
-            const pressRate = body.pressed ? 24 : 8;
+            const pressRate = body.pressed ? 15 : 7;
             body.pressAmount += (pressTarget - body.pressAmount)
                 * (1 - Math.exp(-pressRate * timestep));
-            body.clickEnergy *= Math.exp(-3.2 * timestep);
+            body.clickEnergy *= Math.exp(-2.8 * timestep);
 
             const expansion = Math.max(body.pressAmount, body.clickEnergy);
             body.radius = body.baseRadius * body.presence
                 * (1 + parameters.clickGrowth * expansion);
             body.depth = body.baseDepth * body.presence
-                * (1 + 1.1 * expansion);
+                * (1 + 0.65 * expansion);
 
             const expired = !body.present
                 && body.radius < 0.00005
@@ -692,8 +707,9 @@
             parameters.viscosity,
             parameters.bodyCoupling,
             parameters.bodyDisplacement,
-            parameters.growthCoupling,
+            parameters.bodyPressure,
         );
+        gl.uniform1f(simulation.smoothingLocation, parameters.surfaceSmoothing);
         gl.uniform4fv(simulation.currentBodiesLocation, currentBodyData);
         gl.uniform4fv(simulation.previousBodiesLocation, previousBodyData);
         gl.uniform1i(simulation.bodyCountLocation, activeBodies);
@@ -771,7 +787,8 @@
         drag: [0.02, 0.6],
         bodyCoupling: [0.03, 0.3],
         bodyDisplacement: [0.15, 0.9],
-        growthCoupling: [0.03, 0.35],
+        bodyPressure: [0.2, 1.4],
+        surfaceSmoothing: [0, 0.04],
         clickGrowth: [0.4, 1.8],
         disturbanceScale: [5, 18],
     });

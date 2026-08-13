@@ -23,7 +23,8 @@
         ['drag', 'Drag', 0.01],
         ['bodyCoupling', 'Body coupling', 0.01],
         ['bodyDisplacement', 'Displacement', 0.01],
-        ['growthCoupling', 'Growth force', 0.01],
+        ['bodyPressure', 'Body pressure', 0.01],
+        ['surfaceSmoothing', 'Ripple smoothing', 0.001],
         ['clickGrowth', 'Click growth', 0.01],
         ['disturbanceScale', 'Visual gain', 0.1],
     ];
@@ -35,6 +36,9 @@
             return value.toFixed(5);
         }
         if (name === 'meanDepth') {
+            return value.toFixed(3);
+        }
+        if (name === 'surfaceSmoothing') {
             return value.toFixed(3);
         }
         return value.toFixed(value < 1 ? 2 : 1);

@@ -40,7 +40,7 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 
 - `index.html` — page content and metadata
 - `style.css` — layout, visual styling, and WebKit rubber-band edge colors
-- `ocean.js` — WebGL ocean plus a 120 Hz, GPU-only shallow-water solver; floating-point textures retain height and horizontal momentum while pointer bodies inject displacement and velocity
+- `ocean.js` — WebGL ocean plus a 120 Hz, GPU-only shallow-water solver; floating-point textures retain height and horizontal momentum while broad pointer-pressure bodies create smooth persistent divots, inject displacement, and transfer velocity
 - `wave-lab.html`, `wave-lab.css`, `wave-lab.js` — interactive eight-variant visualization study
 - `water-lab.html`, `water-lab.css`, `water-lab.js` — production-solver laboratory with repeatable click, hover, mouse-drag, touch-drag, and stress scenarios plus height and velocity views
 - `tests/initial-render.test.mjs` — first-paint ocean initialization regression test

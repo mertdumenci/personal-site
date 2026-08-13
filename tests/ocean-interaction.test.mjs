@@ -56,6 +56,31 @@ assert.match(
 );
 assert.match(
     ocean,
+    /float core = exp\(-distanceSquared \* 0\.72\);[\s\S]*float skirt = exp\(-distanceSquared \* 0\.12\)/,
+    'the immersed volume must be a broad bowl rather than a narrow ring',
+);
+assert.match(
+    ocean,
+    /nextVelocity -= gravity \* pressureGradient\(point, body\)[\s\S]*\* bodyPressure \* timestep/,
+    'an immersed body must sustain a smooth pressure divot while present',
+);
+assert.match(
+    ocean,
+    /nextHeight = mix\(nextHeight, neighboringHeight, surfaceSmoothing\)/,
+    'small-scale ripple energy must receive frequency-selective damping',
+);
+assert.match(
+    ocean,
+    /baseRadius: touch \? 0\.055 : 0\.04/,
+    'touch and hover bodies must have a deliberately broad footprint',
+);
+assert.doesNotMatch(
+    ocean,
+    /growthRate[\s\S]*radialDirection/,
+    'body growth must not inject a narrow procedural radial ring',
+);
+assert.match(
+    ocean,
     /\[simulation\.read, simulation\.write\] = \[simulation\.write, simulation\.read\]/,
     'the GPU simulation must preserve state through ping-pong framebuffers',
 );
