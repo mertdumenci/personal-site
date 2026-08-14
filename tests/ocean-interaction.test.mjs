@@ -101,7 +101,7 @@ assert.match(
 );
 assert.match(
     ocean,
-    /disturbanceScale: \{ value: 52/,
+    /disturbanceScale: Object\.freeze\(\{ value: 52, min: 5, max: 72 \}\)/,
     'the broad low-amplitude pressure field must remain visibly coupled',
 );
 assert.match(

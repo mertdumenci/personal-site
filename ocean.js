@@ -397,18 +397,18 @@
         Math.exp(-8 * simulationTimestep),
     ];
     const parameterDefinitions = Object.freeze({
-        gravity: { value: 1.45, min: 0.6, max: 2.4 },
-        meanDepth: { value: 0.04, min: 0.02, max: 0.08 },
-        viscosity: { value: 0.00058, min: 0.00005, max: 0.001 },
-        drag: { value: 0.28, min: 0.02, max: 0.6 },
-        bodyCoupling: { value: 0.09, min: 0.03, max: 0.3 },
-        bodyDisplacement: { value: 0.3, min: 0.15, max: 0.9 },
-        bodyPressure: { value: 0.9, min: 0.2, max: 1.4 },
-        surfaceSmoothing: { value: 0.006, min: 0, max: 0.04 },
-        clickGrowth: { value: 0.9, min: 0.4, max: 1.8 },
-        disturbanceScale: { value: 52, min: 5, max: 72 },
-        pointerSize: { value: 1, min: 0.5, max: 2.5 },
-        pointerDepth: { value: 1, min: 0.35, max: 2.5 },
+        gravity: Object.freeze({ value: 1.45, min: 0.6, max: 2.4 }),
+        meanDepth: Object.freeze({ value: 0.04, min: 0.02, max: 0.08 }),
+        viscosity: Object.freeze({ value: 0.00058, min: 0.00005, max: 0.001 }),
+        drag: Object.freeze({ value: 0.28, min: 0.02, max: 0.6 }),
+        bodyCoupling: Object.freeze({ value: 0.09, min: 0.03, max: 0.3 }),
+        bodyDisplacement: Object.freeze({ value: 0.3, min: 0.15, max: 0.9 }),
+        bodyPressure: Object.freeze({ value: 0.9, min: 0.2, max: 1.4 }),
+        surfaceSmoothing: Object.freeze({ value: 0.006, min: 0, max: 0.04 }),
+        clickGrowth: Object.freeze({ value: 0.9, min: 0.4, max: 1.8 }),
+        disturbanceScale: Object.freeze({ value: 52, min: 5, max: 72 }),
+        pointerSize: Object.freeze({ value: 1, min: 0.5, max: 2.5 }),
+        pointerDepth: Object.freeze({ value: 1, min: 0.35, max: 2.5 }),
     });
     const defaultParameters = Object.freeze(Object.fromEntries(
         Object.entries(parameterDefinitions)
