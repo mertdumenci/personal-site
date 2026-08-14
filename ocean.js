@@ -42,7 +42,7 @@
         uniform float disturbanceScale;
         uniform int debugView;
         uniform vec4 featherBounds;
-        uniform vec4 featherShape;
+        uniform vec2 featherShape;
 
         out vec4 fragmentColor;
 
@@ -62,11 +62,9 @@
         }
 
         float contentFeather(vec2 pixel) {
-            float resolutionHeight = 1.0 / inverseResolution.y;
-            vec2 topDownPixel = vec2(pixel.x, resolutionHeight - pixel.y);
-            vec2 normalized = (topDownPixel - featherBounds.xy) / featherBounds.zw;
-            float radius = length(normalized / featherShape.xy);
-            return featherShape.w * (1.0 - smoothstep(featherShape.z, 1.0, radius));
+            vec2 normalized = (pixel - featherBounds.xy) * featherBounds.zw;
+            float radius = length(normalized);
+            return featherShape.y * (1.0 - smoothstep(featherShape.x, 1.0, radius));
         }
 
         float waveField(vec2 point) {
@@ -506,6 +504,24 @@
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const colorQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const narrowQuery = window.matchMedia('(max-width: 600px)');
+    const narrowFeatherLayout = {
+        offsetX: -38,
+        offsetY: -48,
+        extraWidth: 38,
+        extraHeight: 220,
+        radiusX: 1.18,
+        radiusY: 1.06,
+        fadeStart: 0.54,
+    };
+    const wideFeatherLayout = {
+        offsetX: -72,
+        offsetY: -72,
+        extraWidth: 72,
+        extraHeight: 250,
+        radiusX: 1.08,
+        radiusY: 1.12,
+        fadeStart: 0.5,
+    };
     const targetFrameDuration = 1000 / 60;
     const bodies = new Map();
     const currentBodyData = new Float32Array(maximumBodies * 4);
@@ -528,6 +544,7 @@
     let currentTexture;
     let viewportWidth = -1;
     let viewportHeight = -1;
+    let contentElement = null;
 
     /** Switches programs only when the next pass requires a different one. */
     function useGpuProgram(program) {
@@ -591,58 +608,40 @@
      * Keeping this blend in the opaque final pass avoids quantized CSS-alpha rings.
      */
     function updateContentFeather() {
-        const main = document.querySelector('main');
+        const main = contentElement;
         if (!main) {
             useGpuProgram(renderProgram);
             gl.uniform4f(featherBoundsLocation, 0, 0, 1, 1);
-            gl.uniform4f(featherShapeLocation, 1, 1, 1, 0);
+            gl.uniform2f(featherShapeLocation, 1, 0);
             return false;
         }
 
         const canvasBounds = canvas.getBoundingClientRect();
         const mainBounds = main.getBoundingClientRect();
         const narrow = narrowQuery.matches;
-        const layout = narrow
-            ? {
-                offsetX: -38,
-                offsetY: -48,
-                extraWidth: 38,
-                extraHeight: 220,
-                radiusX: 1.18,
-                radiusY: 1.06,
-                fadeStart: 0.54,
-            }
-            : {
-                offsetX: -72,
-                offsetY: -72,
-                extraWidth: 72,
-                extraHeight: 250,
-                radiusX: 1.08,
-                radiusY: 1.12,
-                fadeStart: 0.5,
-            };
+        const layout = narrow ? narrowFeatherLayout : wideFeatherLayout;
         const scaleX = canvas.width / canvasBounds.width;
         const scaleY = canvas.height / canvasBounds.height;
         const width = narrow
             ? window.innerWidth + layout.extraWidth
             : Math.min(1120, window.innerWidth + layout.extraWidth);
         const height = mainBounds.height + layout.extraHeight;
+        const originX = (
+            mainBounds.left + layout.offsetX - canvasBounds.left
+        ) * scaleX;
+        const originY = (
+            mainBounds.top + layout.offsetY - canvasBounds.top
+        ) * scaleY;
 
         useGpuProgram(renderProgram);
         gl.uniform4f(
             featherBoundsLocation,
-            (mainBounds.left + layout.offsetX - canvasBounds.left) * scaleX,
-            (mainBounds.top + layout.offsetY - canvasBounds.top) * scaleY,
-            width * scaleX,
-            height * scaleY,
+            originX,
+            canvas.height - originY,
+            1 / (width * scaleX * layout.radiusX),
+            -1 / (height * scaleY * layout.radiusY),
         );
-        gl.uniform4f(
-            featherShapeLocation,
-            layout.radiusX,
-            layout.radiusY,
-            layout.fadeStart,
-            1,
-        );
+        gl.uniform2f(featherShapeLocation, layout.fadeStart, 1);
         return true;
     }
 
@@ -1074,6 +1073,7 @@
     function observeContentFeather() {
         const main = document.querySelector('main');
         if (!main) return;
+        contentElement = main;
         resizeObserver.observe(main);
         updateContentFeather();
         draw(performance.now());

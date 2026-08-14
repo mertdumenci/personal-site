@@ -40,7 +40,7 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 
 The ocean uses a 60 Hz procedural presentation shader over a persistent 256×144 shallow-water simulation. The physical solver stays idle while its state is exactly zero, wakes on the first pointer interaction, and then advances at a fixed 120 Hz independently of presentation frames.
 
-The hot path avoids redundant CPU-to-GPU work: one persistent vertex array serves both passes, program/framebuffer/texture/viewport state is cached, stable uniforms upload only when tuning or dimensions change, and ping-pong targets swap without allocating. The presentation shader rejects sky fragments before sampling the simulation texture. It also composites the content feather inside the opaque final pass and applies physical-pixel dithering afterward, avoiding the output quantization rings caused by translucent CSS gradients.
+The hot path avoids redundant CPU-to-GPU work: one persistent vertex array serves both passes, program/framebuffer/texture/viewport state is cached, stable uniforms upload only when tuning or dimensions change, and ping-pong targets swap without allocating. The presentation shader rejects sky fragments before sampling the simulation texture. It also composites the content feather inside the opaque final pass and applies physical-pixel dithering afterward, avoiding the output quantization rings caused by translucent CSS gradients. Layout updates precompute the feather's pixel transform so the fragment shader does no coordinate division.
 
 ## Accessibility
 
