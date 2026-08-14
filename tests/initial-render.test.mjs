@@ -7,13 +7,13 @@ const css = await readFile(new URL('../style.css', import.meta.url), 'utf8');
 
 /** Extracts the body of a named JavaScript function for initialization checks. */
 function functionBody(source, name) {
-    const signature = `function ${name}()`;
-    const start = source.indexOf(signature);
-    assert.notEqual(start, -1, `${name} must exist`);
+    const signature = source.match(new RegExp(`function ${name}\\([^)]*\\)`));
+    assert.ok(signature, `${name} must exist`);
+    const start = signature.index;
 
     let depth = 0;
     let bodyStart = -1;
-    for (let index = start + signature.length; index < source.length; index += 1) {
+    for (let index = start + signature[0].length; index < source.length; index += 1) {
         if (source[index] === '{') {
             if (bodyStart === -1) {
                 bodyStart = index + 1;
@@ -83,6 +83,17 @@ const colorsRestored = deferredInitialization.indexOf('updateColors()');
 assert.ok(
     simulationCreated >= 0 && colorsRestored > simulationCreated,
     'deferred framebuffer setup must restore the presentation clear color',
+);
+const simulationTarget = functionBody(ocean, 'createSimulationTarget');
+assert.match(
+    simulationTarget,
+    /gl\.clearBufferfv\(gl\.COLOR, 0, zeroSimulationState\)/,
+    'simulation targets must clear without mutating presentation clear state',
+);
+assert.doesNotMatch(
+    simulationTarget,
+    /gl\.clearColor\(/,
+    'simulation setup must not overwrite the light-mode presentation color',
 );
 
 const refreshBody = functionBody(ocean, 'refresh');

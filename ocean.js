@@ -397,6 +397,7 @@
         pointerDepth: 1,
     });
     const parameters = { ...defaultParameters };
+    const zeroSimulationState = new Float32Array(4);
     const zeroTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, zeroTexture);
     gl.texImage2D(
@@ -454,8 +455,7 @@
         if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
             throw new Error('Ocean simulation framebuffer is incomplete.');
         }
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.clearBufferfv(gl.COLOR, 0, zeroSimulationState);
         return { texture, framebuffer };
     }
 
