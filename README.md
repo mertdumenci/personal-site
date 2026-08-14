@@ -40,7 +40,7 @@ There are no environment variables. The `CNAME` file configures the GitHub Pages
 
 The ocean uses a 60 Hz procedural presentation shader over a persistent 256×144 shallow-water simulation. The physical solver stays idle while its state is exactly zero, wakes on the first pointer interaction, and then advances at a fixed 120 Hz independently of presentation frames.
 
-The hot path avoids redundant CPU-to-GPU work: one persistent vertex array serves both passes, program/framebuffer/texture/viewport state is cached, stable uniforms upload only when tuning or dimensions change, and ping-pong targets swap without allocating. The presentation shader rejects sky fragments before sampling the simulation texture. Grid reciprocals, damping factors, and projection constants are computed once on the CPU rather than per fragment.
+The hot path avoids redundant CPU-to-GPU work: one persistent vertex array serves both passes, program/framebuffer/texture/viewport state is cached, stable uniforms upload only when tuning or dimensions change, and ping-pong targets swap without allocating. The presentation shader rejects sky fragments before sampling the simulation texture. It also composites the content feather inside the opaque final pass and applies physical-pixel dithering afterward, avoiding the output quantization rings caused by translucent CSS gradients.
 
 ## Accessibility
 
@@ -50,14 +50,14 @@ The content uses native landmarks, headings, description lists, and links. Decor
 
 - `index.html` — page content and metadata
 - `style.css` — layout, visual styling, and WebKit rubber-band edge colors
-- `ocean.js` — optimized WebGL ocean plus an interaction-activated 120 Hz GPU shallow-water solver; floating-point textures retain height and horizontal momentum while broad pointer-pressure bodies create smooth persistent divots, inject displacement, and transfer velocity
+- `ocean.js` — optimized WebGL ocean, band-free GPU content feather, and an interaction-activated 120 Hz GPU shallow-water solver; floating-point textures retain height and horizontal momentum while broad pointer-pressure bodies create smooth persistent divots, inject displacement, and transfer velocity
 - `water-lab.html`, `water-lab.css`, `water-lab.js` — local production-solver laboratory with repeatable click, hover, mouse-drag, touch-drag, and stress scenarios plus height and velocity views
 - `local-water-controls.js`, `local-water-controls.css` — local-only in-page tuning inspector; excluded from the GitHub Pages artifact
 - `scripts/build-pages.sh` — assembles and validates the production-only Pages artifact
 - `scripts/compact-production-assets.mjs` — removes deployment-only documentation and compacts embedded GLSL, CSS, and structural JavaScript/HTML whitespace without changing runtime tokens
 - `tests/initial-render.test.mjs` — first-paint ocean initialization regression test
 - `tests/accessibility.test.mjs` — semantic structure, assistive-technology isolation, focus, and user-preference contract
-- `tests/content-feather.test.mjs` — elliptical feather dithering and public contact contract
+- `tests/content-feather.test.mjs` — opaque final-pass feathering, post-composite dithering, and public contact contract
 - `tests/ocean-filtering.test.mjs` — screen-space wave filtering regression test
 - `tests/ocean-interaction.test.mjs` — passive pointer and touch interaction regression test
 - `tests/water-lab.test.mjs` — visual-harness and production-path regression test
