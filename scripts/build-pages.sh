@@ -21,10 +21,7 @@ sed -i.bak \
     '/<!-- LOCAL_WATER_CONTROLS_START -->/,/<!-- LOCAL_WATER_CONTROLS_END -->/d' \
     "$destination/index.html"
 rm "$destination/index.html.bak"
-node scripts/compact-production-assets.mjs \
-    ocean.js "$destination/ocean.js" \
-    style.css "$destination/style.css" \
-    "$destination/index.html" "$destination/index.html"
+node scripts/compact-production-assets.mjs . "$destination"
 
 if grep -R -q 'LOCAL_WATER_CONTROLS\|local-water-controls\|water-lab' "$destination"; then
     echo 'Local water tooling leaked into the Pages artifact.' >&2

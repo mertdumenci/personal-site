@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /** Build byte-efficient production assets while preserving readable sources. */
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const shaderNames = [
     'vertexSource',
@@ -154,35 +156,28 @@ function compactStructuralWhitespace(source) {
         .join('\n')}\n`;
 }
 
-const [
-    oceanSourcePath,
-    oceanDestinationPath,
-    cssSourcePath,
-    cssDestinationPath,
-    htmlSourcePath,
-    htmlDestinationPath,
-] = process.argv.slice(2);
-if (
-    !oceanSourcePath
-    || !oceanDestinationPath
-    || !cssSourcePath
-    || !cssDestinationPath
-    || !htmlSourcePath
-    || !htmlDestinationPath
-) {
+/**
+ * Compacts the production assets in place within `DESTINATION_DIR`:
+ * `ocean.js` and `style.css` are read from `SOURCE_DIR` and written
+ * compacted into `DESTINATION_DIR`, while `index.html` is read from — and
+ * rewritten in — `DESTINATION_DIR` so the caller can pre-edit it (for
+ * example, to strip the local-control loader) before compaction.
+ */
+const [sourceDirectory, destinationDirectory] = process.argv.slice(2);
+if (!sourceDirectory || !destinationDirectory) {
     throw new Error(
-        'Usage: compact-production-assets.mjs '
-        + 'OCEAN_SOURCE OCEAN_DEST CSS_SOURCE CSS_DEST HTML_SOURCE HTML_DEST',
+        'Usage: compact-production-assets.mjs SOURCE_DIR DESTINATION_DIR',
     );
 }
+const source = resolve(sourceDirectory);
+const destination = resolve(destinationDirectory);
+await mkdir(destination, { recursive: true });
 
-const [oceanSource, cssSource, htmlSource] = await Promise.all([
-    readFile(oceanSourcePath, 'utf8'),
-    readFile(cssSourcePath, 'utf8'),
-    readFile(htmlSourcePath, 'utf8'),
-]);
-await Promise.all([
-    writeFile(oceanDestinationPath, compactOcean(oceanSource)),
-    writeFile(cssDestinationPath, compactCss(cssSource)),
-    writeFile(htmlDestinationPath, compactStructuralWhitespace(htmlSource)),
-]);
+for (const [name, compact, origin] of [
+    ['ocean.js', compactOcean, source],
+    ['style.css', compactCss, source],
+    ['index.html', compactStructuralWhitespace, destination],
+]) {
+    const text = await readFile(pathToFileURL(resolve(origin, name)), 'utf8');
+    await writeFile(pathToFileURL(resolve(destination, name)), compact(text));
+}
