@@ -58,10 +58,21 @@ for (const parameter of [
         `${parameter} must be available in the local inspector`,
     );
 }
+
 assert.match(
     controls,
     /changes are not saved/,
     'the inspector must clearly describe its ephemeral scope',
+);
+assert.match(
+    controls,
+    /engine\.definitions\[name\]/,
+    'the inspector must read slider bounds from the engine definition table',
+);
+assert.match(
+    controls,
+    /for \(const \[name, labelText, step\] of controlDefinitions\)/,
+    'the inspector must iterate its own control list, not the engine definitions',
 );
 assert.match(
     controls,

@@ -6,7 +6,7 @@
         return;
     }
 
-    const definitions = [
+    const controlDefinitions = [
         ['pointerSize', 'Size', 0.01],
         ['pointerDepth', 'Divot', 0.01],
         ['clickGrowth', 'Click growth', 0.01],
@@ -58,12 +58,12 @@
         }
     }
 
-    for (const [name, labelText, step] of definitions) {
+    for (const [name, labelText, step] of controlDefinitions) {
         const row = document.createElement('div');
         const label = document.createElement('label');
         const input = document.createElement('input');
         const output = document.createElement('output');
-        const [minimum, maximum] = engine.limits[name];
+        const { min: minimum, max: maximum } = engine.definitions[name];
 
         row.className = 'water-control';
         label.htmlFor = `local-water-${name}`;

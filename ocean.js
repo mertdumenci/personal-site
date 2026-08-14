@@ -1,11 +1,11 @@
 (() => {
     'use strict';
 
-    const script = document.currentScript;
-    const labMode = script?.hasAttribute('data-ocean-lab') ?? false;
     const localMode = location.protocol === 'file:'
         || location.hostname === 'localhost'
         || location.hostname === '127.0.0.1';
+    const script = document.currentScript;
+    const labMode = script?.hasAttribute('data-ocean-lab') ?? false;
     const canvas = document.querySelector('.ocean-canvas');
     const gl = canvas?.getContext('webgl2', {
         alpha: false,
@@ -378,24 +378,42 @@
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.activeTexture(gl.TEXTURE0);
 
+    const maximumBodies = 4;
     const simulationWidth = 256;
     const simulationHeight = 144;
-    const maximumBodies = 4;
     const simulationStepDuration = 1000 / 120;
-    const defaultParameters = Object.freeze({
-        gravity: 1.45,
-        meanDepth: 0.04,
-        viscosity: 0.00058,
-        drag: 0.28,
-        bodyCoupling: 0.09,
-        bodyDisplacement: 0.3,
-        bodyPressure: 0.9,
-        surfaceSmoothing: 0.006,
-        clickGrowth: 0.9,
-        disturbanceScale: 52,
-        pointerSize: 1,
-        pointerDepth: 1,
+    const simulationTimestep = simulationStepDuration / 1000;
+    const texelX = 1 / simulationWidth;
+    const texelY = 1 / simulationHeight;
+    const gridUniform = new Float32Array([
+        texelX,
+        texelY,
+        0.5 / texelY,
+        1 / (texelY * texelY),
+    ]);
+    const fixedDamping = [
+        Math.exp(-6 * simulationTimestep),
+        Math.exp(-0.025 * simulationTimestep),
+        Math.exp(-8 * simulationTimestep),
+    ];
+    const parameterDefinitions = Object.freeze({
+        gravity: { value: 1.45, min: 0.6, max: 2.4 },
+        meanDepth: { value: 0.04, min: 0.02, max: 0.08 },
+        viscosity: { value: 0.00058, min: 0.00005, max: 0.001 },
+        drag: { value: 0.28, min: 0.02, max: 0.6 },
+        bodyCoupling: { value: 0.09, min: 0.03, max: 0.3 },
+        bodyDisplacement: { value: 0.3, min: 0.15, max: 0.9 },
+        bodyPressure: { value: 0.9, min: 0.2, max: 1.4 },
+        surfaceSmoothing: { value: 0.006, min: 0, max: 0.04 },
+        clickGrowth: { value: 0.9, min: 0.4, max: 1.8 },
+        disturbanceScale: { value: 52, min: 5, max: 72 },
+        pointerSize: { value: 1, min: 0.5, max: 2.5 },
+        pointerDepth: { value: 1, min: 0.35, max: 2.5 },
     });
+    const defaultParameters = Object.freeze(Object.fromEntries(
+        Object.entries(parameterDefinitions)
+            .map(([name, { value }]) => [name, value]),
+    ));
     const parameters = { ...defaultParameters };
     const zeroSimulationState = new Float32Array(4);
     const zeroTexture = gl.createTexture();
@@ -415,9 +433,12 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const simulationFilter = gl.getExtension('OES_texture_float_linear')
+        ? gl.LINEAR
+        : gl.NEAREST;
 
     /** Creates one floating-point texture and framebuffer for wave state. */
-    function createSimulationTarget(linearFiltering) {
+    function createSimulationTarget() {
         const texture = gl.createTexture();
         const framebuffer = gl.createFramebuffer();
         gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -432,16 +453,8 @@
             gl.HALF_FLOAT,
             null,
         );
-        gl.texParameteri(
-            gl.TEXTURE_2D,
-            gl.TEXTURE_MIN_FILTER,
-            linearFiltering ? gl.LINEAR : gl.NEAREST,
-        );
-        gl.texParameteri(
-            gl.TEXTURE_2D,
-            gl.TEXTURE_MAG_FILTER,
-            linearFiltering ? gl.LINEAR : gl.NEAREST,
-        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, simulationFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, simulationFilter);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
@@ -465,9 +478,8 @@
             return null;
         }
 
-        const linearFiltering = Boolean(gl.getExtension('OES_texture_float_linear'));
-        const read = createSimulationTarget(linearFiltering);
-        const write = createSimulationTarget(linearFiltering);
+        const read = createSimulationTarget();
+        const write = createSimulationTarget();
         const simulation = {
             read,
             write,
@@ -733,9 +745,15 @@
         return bodies.get(event.pointerId) || createBody(event, point);
     }
 
+    /** Ignores pointer activity inside the local tuning inspector. */
+    function overLocalControls(event) {
+        return event.target instanceof Element
+            && event.target.closest('.water-controls');
+    }
+
     /** Moves an immersed body; the solver transfers its momentum to the fluid. */
     function handlePointerMove(event) {
-        if (event.target instanceof Element && event.target.closest('.water-controls')) {
+        if (overLocalControls(event)) {
             return;
         }
         if (event.pointerType === 'touch' && !bodies.has(event.pointerId)) {
@@ -759,7 +777,7 @@
 
     /** Grows the immersed body so its added volume launches a physical wave. */
     function handlePointerDown(event) {
-        if (event.target instanceof Element && event.target.closest('.water-controls')) {
+        if (overLocalControls(event)) {
             return;
         }
         const point = waterPoint(event);
@@ -852,21 +870,12 @@
     /** Uploads simulation uniforms that remain stable across physics steps. */
     function uploadSimulationParameters() {
         if (!simulation || !simulationProgram) return;
-        const timestep = simulationStepDuration / 1000;
-        const texelX = 1 / simulationWidth;
-        const texelY = 1 / simulationHeight;
 
         useGpuProgram(simulationProgram);
-        gl.uniform4f(
-            simulation.gridLocation,
-            texelX,
-            texelY,
-            0.5 / texelY,
-            1 / (texelY * texelY),
-        );
+        gl.uniform4fv(simulation.gridLocation, gridUniform);
         gl.uniform4f(
             simulation.physicsLocation,
-            timestep,
+            simulationTimestep,
             parameters.gravity,
             parameters.meanDepth,
             0,
@@ -881,10 +890,10 @@
         gl.uniform1f(simulation.smoothingLocation, parameters.surfaceSmoothing);
         gl.uniform4f(
             simulation.dampingLocation,
-            Math.exp(-6 * timestep),
-            Math.exp(-0.025 * timestep),
-            Math.exp(-8 * timestep),
-            Math.exp(-parameters.drag * timestep),
+            fixedDamping[0],
+            fixedDamping[1],
+            fixedDamping[2],
+            Math.exp(-parameters.drag * simulationTimestep),
         );
     }
 
@@ -986,30 +995,15 @@
         animationFrame = requestAnimationFrame(animate);
     }
 
-    const parameterLimits = Object.freeze({
-        gravity: [0.6, 2.4],
-        meanDepth: [0.02, 0.08],
-        viscosity: [0.00005, 0.001],
-        drag: [0.02, 0.6],
-        bodyCoupling: [0.03, 0.3],
-        bodyDisplacement: [0.15, 0.9],
-        bodyPressure: [0.2, 1.4],
-        surfaceSmoothing: [0, 0.04],
-        clickGrowth: [0.4, 1.8],
-        disturbanceScale: [5, 72],
-        pointerSize: [0.5, 2.5],
-        pointerDepth: [0.35, 2.5],
-    });
-
     /** Applies bounded laboratory parameters without destabilizing the solver. */
     function setParameters(values) {
         let changed = false;
         for (const [name, value] of Object.entries(values)) {
-            const limits = parameterLimits[name];
-            if (!limits || !Number.isFinite(value)) {
+            const definition = parameterDefinitions[name];
+            if (!definition || !Number.isFinite(value)) {
                 continue;
             }
-            const nextValue = Math.min(Math.max(value, limits[0]), limits[1]);
+            const nextValue = Math.min(Math.max(value, definition.min), definition.max);
             if (parameters[name] !== nextValue) {
                 parameters[name] = nextValue;
                 changed = true;
@@ -1148,8 +1142,8 @@
         Object.defineProperty(window, 'oceanLab', {
             configurable: true,
             value: Object.freeze({
+                definitions: parameterDefinitions,
                 defaults: defaultParameters,
-                limits: parameterLimits,
                 getParameters: () => ({ ...parameters }),
                 getMetrics: simulationMetrics,
                 reset: resetSimulation,

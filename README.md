@@ -52,9 +52,9 @@ The content uses native landmarks, headings, description lists, and links. Decor
 
 - `index.html` — page content and metadata
 - `style.css` — layout, visual styling, and WebKit rubber-band edge colors
-- `ocean.js` — optimized WebGL ocean, band-free GPU content feather, and an interaction-activated 120 Hz GPU shallow-water solver; floating-point textures retain height and horizontal momentum while broad pointer-pressure bodies create smooth persistent divots, inject displacement, and transfer velocity
-- `water-lab.html`, `water-lab.css`, `water-lab.js` — local production-solver laboratory with repeatable click, hover, mouse-drag, touch-drag, and stress scenarios plus height and velocity views
-- `local-water-controls.js`, `local-water-controls.css` — local-only in-page tuning inspector; excluded from the GitHub Pages artifact
+- `ocean.js` — optimized WebGL ocean, band-free GPU content feather, and an interaction-activated 120 Hz GPU shallow-water solver; floating-point textures retain height and horizontal momentum while broad pointer-pressure bodies create smooth persistent divots, inject displacement, and transfer velocity; tunable parameters live in one frozen definition table (default, minimum, maximum) exported to local tools as `window.oceanLab.definitions`
+- `water-lab.html`, `water-lab.css`, `water-lab.js` — local production-solver laboratory with repeatable click, hover, mouse-drag, touch-drag, and stress scenarios plus height and velocity views; control ranges come from the engine's exported definitions
+- `local-water-controls.js`, `local-water-controls.css` — local-only in-page tuning inspector that reads ranges from the engine's exported definitions; excluded from the GitHub Pages artifact
 - `scripts/build-pages.sh` — assembles and validates the production-only Pages artifact
 - `scripts/compact-production-assets.mjs` — removes deployment-only documentation and compacts embedded GLSL, CSS, and structural JavaScript/HTML whitespace without changing runtime tokens
 - `tests/initial-render.test.mjs` — first-paint ocean initialization regression test

@@ -101,8 +101,13 @@ assert.match(
 );
 assert.match(
     ocean,
-    /disturbanceScale: 52/,
+    /disturbanceScale: \{ value: 52/,
     'the broad low-amplitude pressure field must remain visibly coupled',
+);
+assert.match(
+    ocean,
+    /const maximumBodies = 4/,
+    'the body buffer size must be declared in JS to size the body data arrays',
 );
 assert.match(
     ocean,

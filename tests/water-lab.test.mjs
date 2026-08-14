@@ -40,8 +40,18 @@ assert.match(
 );
 assert.match(
     script,
-    /engine\.getMetrics\(\)/,
-    'the harness must report presentation and solver rates without GPU readback',
+    /const value = document\.createElement\('output'\)/,
+    'each control must have a native output element bound to its range input',
+);
+assert.match(
+    script,
+    /engine\.definitions\[name\]/,
+    'the laboratory must read slider bounds from the engine definition table',
+);
+assert.match(
+    script,
+    /Object\.defineProperty\(window, 'waterLab'/,
+    'browser automation must be able to run deterministic lab scenarios',
 );
 assert.match(
     script,

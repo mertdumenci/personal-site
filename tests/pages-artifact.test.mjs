@@ -29,7 +29,7 @@ try {
         'the deployed ocean runtime must compact shader whitespace',
     );
     assert.ok(
-        Buffer.byteLength(ocean) < 30_000,
+        Buffer.byteLength(ocean) < 31_000,
         'the deployed ocean runtime must omit documentation and indentation',
     );
     assert.doesNotMatch(

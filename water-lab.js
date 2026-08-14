@@ -51,16 +51,16 @@
         const row = document.createElement('div');
         const labelElement = document.createElement('label');
         const input = document.createElement('input');
+        const { min, max } = engine.definitions[name];
         const value = document.createElement('output');
-        const limits = engine.limits[name];
 
         row.className = 'control-row';
         labelElement.htmlFor = `control-${name}`;
         labelElement.textContent = label;
         input.id = `control-${name}`;
         input.type = 'range';
-        input.min = String(limits[0]);
-        input.max = String(limits[1]);
+        input.min = String(min);
+        input.max = String(max);
         input.step = String(step);
         value.className = 'control-value';
         input.addEventListener('input', () => {
