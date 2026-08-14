@@ -114,6 +114,16 @@ assert.match(
     /canvas\.dataset\.simulation = simulation \? 'shallow-water' : 'unavailable'/,
     'the runtime must report the physical solver rather than the old height field',
 );
+assert.match(
+    ocean,
+    /canvas\.dataset\.simulation = 'pending'/,
+    'the first presentation frame must not wait for solver compilation',
+);
+assert.match(
+    ocean,
+    /function createBody\(event, point\) \{\s*initializeSimulation\(\);/,
+    'early pointer input must initialize the deferred solver synchronously',
+);
 assert.doesNotMatch(
     ocean,
     /2\.0 \* current - previous/,

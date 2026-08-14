@@ -42,6 +42,8 @@ The ocean uses a 60 Hz procedural presentation shader over a persistent 256×144
 
 The hot path avoids redundant CPU-to-GPU work: one persistent vertex array serves both passes, program/framebuffer/texture/viewport state is cached, stable uniforms upload only when tuning or dimensions change, and ping-pong targets swap without allocating. The presentation shader rejects sky fragments before sampling the simulation texture. It also composites the content feather inside the opaque final pass and applies physical-pixel dithering afterward, avoiding the output quantization rings caused by translucent CSS gradients. Layout updates precompute the feather's pixel transform so the fragment shader does no coordinate division.
 
+The first frame depends only on the local stylesheet and preloaded presentation script. Third-party font stylesheets are discovered after the synchronous ocean draw, while simulation-shader compilation and floating-point target allocation run during the first idle period. An interaction arriving before that idle task initializes the solver synchronously, so no pointer input is lost.
+
 ## Accessibility
 
 The content uses native landmarks, headings, description lists, and links. Decorative WebGL canvases are excluded from the accessibility tree while their meaningful text remains ordinary HTML. Keyboard focus, increased contrast, forced colors, reduced motion, and reduced transparency receive explicit treatments. The local water controls use native labeled inputs and remain outside the production artifact.

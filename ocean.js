@@ -351,13 +351,6 @@
         canvas.remove();
         return;
     }
-    if (gl.getExtension('EXT_color_buffer_float')) {
-        try {
-            simulationProgram = createProgram(simulationFragmentSource);
-        } catch (error) {
-            console.warn(error);
-        }
-    }
     const inverseResolutionLocation = gl.getUniformLocation(
         renderProgram,
         'inverseResolution',
@@ -493,13 +486,46 @@
     }
 
     let simulation = null;
-    try {
-        simulation = createSimulation();
-    } catch (error) {
-        console.warn(error);
-        simulationProgram = null;
+    let simulationInitializationStarted = false;
+    canvas.dataset.simulation = 'pending';
+
+    /** Compiles and allocates the physical solver after the first ocean frame. */
+    function initializeSimulation() {
+        if (simulationInitializationStarted) {
+            return simulation;
+        }
+        simulationInitializationStarted = true;
+
+        if (!gl.getExtension('EXT_color_buffer_float')) {
+            canvas.dataset.simulation = 'unavailable';
+            return null;
+        }
+
+        try {
+            simulationProgram = createProgram(simulationFragmentSource);
+            simulation = createSimulation();
+            configurePrograms();
+        } catch (error) {
+            console.warn(error);
+            simulationProgram = null;
+            simulation = null;
+        }
+        canvas.dataset.simulation = simulation ? 'shallow-water' : 'unavailable';
+        return simulation;
     }
-    canvas.dataset.simulation = simulation ? 'shallow-water' : 'unavailable';
+
+    /** Schedules solver initialization without delaying the first visual frame. */
+    function scheduleSimulationInitialization() {
+        if (labMode) {
+            initializeSimulation();
+            return;
+        }
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(initializeSimulation, { timeout: 250 });
+            return;
+        }
+        setTimeout(initializeSimulation, 0);
+    }
 
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const colorQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -674,6 +700,7 @@
 
     /** Creates one immersed body whose size and depth respond continuously. */
     function createBody(event, point) {
+        initializeSimulation();
         if (!simulationActive) {
             simulationActive = true;
             lastSimulationTime = performance.now();
@@ -1131,4 +1158,5 @@
         });
     }
     refresh();
+    scheduleSimulationInitialization();
 })();

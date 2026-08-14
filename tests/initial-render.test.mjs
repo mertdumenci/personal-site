@@ -59,6 +59,24 @@ assert.ok(
     html.indexOf(scriptTag[0]) < html.indexOf('<main>'),
     'the ocean must render before page content is parsed',
 );
+const externalStylesheets = [...html.matchAll(/<link\b[^>]*>/gi)]
+    .map(([tag]) => tag)
+    .filter((tag) => (
+        /\brel=["']stylesheet["']/i.test(tag)
+        && /\bhref=["']https:\/\//i.test(tag)
+    ));
+assert.ok(
+    externalStylesheets.every(
+        (tag) => html.indexOf(tag) > html.indexOf(scriptTag[0]),
+    ),
+    'third-party stylesheets must not block the first ocean frame',
+);
+const startupRefresh = ocean.lastIndexOf('refresh();');
+const solverSchedule = ocean.lastIndexOf('scheduleSimulationInitialization();');
+assert.ok(
+    startupRefresh >= 0 && solverSchedule > startupRefresh,
+    'solver compilation must be scheduled after the synchronous first frame',
+);
 
 const refreshBody = functionBody(ocean, 'refresh');
 const initialDraw = refreshBody.indexOf('draw(startTime)');
