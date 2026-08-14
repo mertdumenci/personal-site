@@ -77,6 +77,13 @@ assert.ok(
     startupRefresh >= 0 && solverSchedule > startupRefresh,
     'solver compilation must be scheduled after the synchronous first frame',
 );
+const deferredInitialization = functionBody(ocean, 'initializeSimulation');
+const simulationCreated = deferredInitialization.indexOf('createSimulation()');
+const colorsRestored = deferredInitialization.indexOf('updateColors()');
+assert.ok(
+    simulationCreated >= 0 && colorsRestored > simulationCreated,
+    'deferred framebuffer setup must restore the presentation clear color',
+);
 
 const refreshBody = functionBody(ocean, 'refresh');
 const initialDraw = refreshBody.indexOf('draw(startTime)');

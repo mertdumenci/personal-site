@@ -505,6 +505,7 @@
             simulationProgram = createProgram(simulationFragmentSource);
             simulation = createSimulation();
             configurePrograms();
+            updateColors();
         } catch (error) {
             console.warn(error);
             simulationProgram = null;
