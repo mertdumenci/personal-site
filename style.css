@@ -1,6 +1,5 @@
 :root {
     --bg: #ffffff;
-    --bg-rgb: 255, 255, 255;
     --text: #1a1a1a;
     --text-secondary: #555555;
     --accent: #2563eb;
@@ -12,7 +11,6 @@
 @media (prefers-color-scheme: dark) {
     :root {
         --bg: #111111;
-        --bg-rgb: 17, 17, 17;
         --text: #e8e8e8;
         --text-secondary: #888888;
         --accent: #60a5fa;
