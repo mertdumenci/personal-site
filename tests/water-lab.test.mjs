@@ -50,8 +50,8 @@ assert.match(
 );
 assert.match(
     script,
-    /Object\.defineProperty\(window, 'waterLab'/,
-    'browser automation must be able to run deterministic lab scenarios',
+    /engine\.getMetrics\(\)/,
+    'the harness must report presentation and solver rates without GPU readback',
 );
 assert.match(
     script,
