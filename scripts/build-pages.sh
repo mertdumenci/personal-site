@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# Assemble a minimal, auditable GitHub Pages artifact without local tooling.
+# Assemble a minimal, auditable GitHub Pages artifact with Node.js.
 destination=${1:-_site}
 
 if [ -d "$destination" ] && [ -n "$(find "$destination" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
@@ -11,9 +11,7 @@ fi
 mkdir -p "$destination"
 for asset in \
     CNAME \
-    index.html \
-    ocean.js \
-    style.css
+    index.html
 do
     cp "$asset" "$destination/$asset"
 done
@@ -23,6 +21,10 @@ sed -i.bak \
     '/<!-- LOCAL_WATER_CONTROLS_START -->/,/<!-- LOCAL_WATER_CONTROLS_END -->/d' \
     "$destination/index.html"
 rm "$destination/index.html.bak"
+node scripts/compact-production-assets.mjs \
+    ocean.js "$destination/ocean.js" \
+    style.css "$destination/style.css" \
+    "$destination/index.html" "$destination/index.html"
 
 if grep -R -q 'LOCAL_WATER_CONTROLS\|local-water-controls\|water-lab' "$destination"; then
     echo 'Local water tooling leaked into the Pages artifact.' >&2

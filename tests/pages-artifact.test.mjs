@@ -13,12 +13,57 @@ try {
     await run('./scripts/build-pages.sh', [destination], { cwd: root });
     const files = await readdir(destination);
     const html = await readFile(join(destination, 'index.html'), 'utf8');
+    const ocean = await readFile(join(destination, 'ocean.js'), 'utf8');
+    const oceanSource = await readFile(join(root, 'ocean.js'), 'utf8');
+    const style = await readFile(join(destination, 'style.css'), 'utf8');
+    const styleSource = await readFile(join(root, 'style.css'), 'utf8');
     const expectedFiles = ['CNAME', 'index.html', 'ocean.js', 'style.css'];
 
     assert.deepEqual(
         files.sort(),
         expectedFiles.sort(),
         'the Pages artifact must contain only production runtime files',
+    );
+    assert.ok(
+        Buffer.byteLength(ocean) < Buffer.byteLength(oceanSource),
+        'the deployed ocean runtime must compact shader whitespace',
+    );
+    assert.ok(
+        Buffer.byteLength(ocean) < 27_000,
+        'the deployed ocean runtime must omit documentation and indentation',
+    );
+    assert.doesNotMatch(
+        ocean,
+        /^\s+/m,
+        'JavaScript compaction must preserve lines without source indentation',
+    );
+    assert.doesNotMatch(
+        ocean,
+        /\/\*\*/,
+        'source documentation must remain outside the production runtime',
+    );
+    assert.match(
+        ocean,
+        /#version 300 es\nlayout\(location = 0\)in vec2 position;/,
+        'the compacted vertex shader must preserve its preprocessor newline',
+    );
+    assert.ok(
+        Buffer.byteLength(style) < Buffer.byteLength(styleSource),
+        'the deployed stylesheet must compact comments and whitespace',
+    );
+    assert.match(
+        style,
+        /calc\(100vw \+ 72px\)/,
+        'CSS compaction must preserve required calc operator spacing',
+    );
+    assert.ok(
+        Buffer.byteLength(html) < 5_500,
+        'the deployed HTML must omit source indentation and blank lines',
+    );
+    assert.doesNotMatch(
+        html,
+        /\n\n|^\s+</m,
+        'HTML compaction must retain one separator without indentation',
     );
     assert.doesNotMatch(
         html,

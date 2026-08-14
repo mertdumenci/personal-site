@@ -4,7 +4,7 @@ Static personal homepage for [dumenci.me](https://dumenci.me), hosted by GitHub 
 
 ## Prerequisites
 
-Any static HTTP server and a modern browser with WebGL 2. The fluid interaction uses floating-point render targets when `EXT_color_buffer_float` is available and otherwise leaves the ocean presentation non-interactive. The site has no build or package-install step. Node.js is required only for regression tests, and `uv` is required only for the optional image-analysis tool.
+Any static HTTP server and a modern browser with WebGL 2. The fluid interaction uses floating-point render targets when `EXT_color_buffer_float` is available and otherwise leaves the ocean presentation non-interactive. The source preview has no build or package-install step. Node.js is required for regression tests and the production artifact build; `uv` is required only for the optional image-analysis tool.
 
 ## Run locally
 
@@ -34,7 +34,7 @@ uv run tools/analyze_ocean.py /path/to/captures
 
 ## Configuration
 
-There are no environment variables. The `CNAME` file configures the GitHub Pages custom domain. A GitHub Actions workflow tests the site and deploys an explicit four-file artifact from `master`: `CNAME`, `index.html`, `ocean.js`, and `style.css`. The build removes the local-control loader; all tuning and diagnostic tools remain available only in source checkouts and local previews.
+There are no environment variables. The `CNAME` file configures the GitHub Pages custom domain. A GitHub Actions workflow tests the site and deploys an explicit four-file artifact from `master`: `CNAME`, `index.html`, `ocean.js`, and `style.css`. The build removes the local-control loader and deployment-only JavaScript documentation comments, then compacts embedded GLSL, CSS, and structural JavaScript/HTML whitespace without obscuring the readable sources; all tuning and diagnostic tools remain available only in source checkouts and local previews.
 
 ## Ocean renderer
 
@@ -54,6 +54,7 @@ The content uses native landmarks, headings, description lists, and links. Decor
 - `water-lab.html`, `water-lab.css`, `water-lab.js` — local production-solver laboratory with repeatable click, hover, mouse-drag, touch-drag, and stress scenarios plus height and velocity views
 - `local-water-controls.js`, `local-water-controls.css` — local-only in-page tuning inspector; excluded from the GitHub Pages artifact
 - `scripts/build-pages.sh` — assembles and validates the production-only Pages artifact
+- `scripts/compact-production-assets.mjs` — removes deployment-only documentation and compacts embedded GLSL, CSS, and structural JavaScript/HTML whitespace without changing runtime tokens
 - `tests/initial-render.test.mjs` — first-paint ocean initialization regression test
 - `tests/accessibility.test.mjs` — semantic structure, assistive-technology isolation, focus, and user-preference contract
 - `tests/content-feather.test.mjs` — elliptical feather dithering and public contact contract
