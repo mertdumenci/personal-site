@@ -36,6 +36,12 @@ uv run tools/analyze_ocean.py /path/to/captures
 
 There are no environment variables. The `CNAME` file configures the GitHub Pages custom domain. A GitHub Actions workflow tests the site and deploys an explicit four-file artifact from `master`: `CNAME`, `index.html`, `ocean.js`, and `style.css`. The build removes the local-control loader; all tuning and diagnostic tools remain available only in source checkouts and local previews.
 
+## Ocean renderer
+
+The ocean uses a 60 Hz procedural presentation shader over a persistent 256×144 shallow-water simulation. The physical solver stays idle while its state is exactly zero, wakes on the first pointer interaction, and then advances at a fixed 120 Hz independently of presentation frames.
+
+The hot path avoids redundant CPU-to-GPU work: one persistent vertex array serves both passes, program/framebuffer/texture/viewport state is cached, stable uniforms upload only when tuning or dimensions change, and ping-pong targets swap without allocating. The presentation shader rejects sky fragments before sampling the simulation texture. Grid reciprocals, damping factors, and projection constants are computed once on the CPU rather than per fragment.
+
 ## Accessibility
 
 The content uses native landmarks, headings, description lists, and links. Decorative WebGL canvases are excluded from the accessibility tree while their meaningful text remains ordinary HTML. Keyboard focus, increased contrast, forced colors, reduced motion, and reduced transparency receive explicit treatments. The local water controls use native labeled inputs and remain outside the production artifact.
@@ -44,7 +50,7 @@ The content uses native landmarks, headings, description lists, and links. Decor
 
 - `index.html` — page content and metadata
 - `style.css` — layout, visual styling, and WebKit rubber-band edge colors
-- `ocean.js` — WebGL ocean plus a 120 Hz, GPU-only shallow-water solver; floating-point textures retain height and horizontal momentum while broad pointer-pressure bodies create smooth persistent divots, inject displacement, and transfer velocity
+- `ocean.js` — optimized WebGL ocean plus an interaction-activated 120 Hz GPU shallow-water solver; floating-point textures retain height and horizontal momentum while broad pointer-pressure bodies create smooth persistent divots, inject displacement, and transfer velocity
 - `water-lab.html`, `water-lab.css`, `water-lab.js` — local production-solver laboratory with repeatable click, hover, mouse-drag, touch-drag, and stress scenarios plus height and velocity views
 - `local-water-controls.js`, `local-water-controls.css` — local-only in-page tuning inspector; excluded from the GitHub Pages artifact
 - `scripts/build-pages.sh` — assembles and validates the production-only Pages artifact

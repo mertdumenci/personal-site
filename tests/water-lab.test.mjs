@@ -43,6 +43,11 @@ assert.match(
     /engine\.getMetrics\(\)/,
     'the harness must report presentation and solver rates without GPU readback',
 );
+assert.match(
+    script,
+    /!metrics\.active\s*\?\s*'idle'/,
+    'the laboratory must distinguish an intentionally idle solver from sampling',
+);
 for (const control of ['bodyPressure', 'surfaceSmoothing']) {
     assert.match(
         script,

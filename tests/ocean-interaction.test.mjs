@@ -81,8 +81,18 @@ assert.doesNotMatch(
 );
 assert.match(
     ocean,
-    /\[simulation\.read, simulation\.write\] = \[simulation\.write, simulation\.read\]/,
-    'the GPU simulation must preserve state through ping-pong framebuffers',
+    /const previousRead = simulation\.read;\s*simulation\.read = simulation\.write;\s*simulation\.write = previousRead/,
+    'the GPU simulation must preserve state through allocation-free ping-pong framebuffers',
+);
+assert.match(
+    ocean,
+    /if \(!simulation \|\| !simulationActive \|\| motionQuery\.matches\)/,
+    'the zero-filled simulation must remain idle until interaction adds energy',
+);
+assert.match(
+    ocean,
+    /function createBody[\s\S]*simulationActive = true/,
+    'creating an immersed body must wake the physical solver',
 );
 assert.match(
     ocean,
@@ -131,8 +141,8 @@ assert.match(
 );
 assert.match(
     ocean,
-    /if \(!simulation \|\| motionQuery\.matches\) \{/,
-    'reduced-motion users must not receive interactive animation',
+    /if \(!simulation \|\| !simulationActive \|\| motionQuery\.matches\) \{/,
+    'idle and reduced-motion users must not receive physical simulation steps',
 );
 assert.match(
     ocean,

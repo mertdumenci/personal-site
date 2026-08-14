@@ -237,9 +237,11 @@
         metricFps.textContent = metrics.frameRate > 0
             ? `${metrics.frameRate.toFixed(0)} fps`
             : 'sampling';
-        metricPhysics.textContent = metrics.simulationRate > 0
-            ? `${metrics.simulationRate.toFixed(0)} steps/s`
-            : 'sampling';
+        metricPhysics.textContent = !metrics.active
+            ? 'idle'
+            : metrics.simulationRate > 0
+                ? `${metrics.simulationRate.toFixed(0)} steps/s`
+                : 'sampling';
         metricState.textContent = `${metrics.width}×${metrics.height}`;
         requestAnimationFrame(updateMetrics);
     }

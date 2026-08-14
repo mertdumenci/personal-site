@@ -68,4 +68,14 @@ assert.doesNotMatch(
     'broad lighting fields must not reintroduce amorphous bands',
 );
 
+const horizonDiscard = ocean.indexOf('if (uv.y > horizon)');
+const disturbanceSample = ocean.indexOf(
+    'float disturbance = texture(disturbanceMap, uv).r',
+);
+assert.ok(horizonDiscard >= 0, 'the presentation shader must cull sky fragments');
+assert.ok(
+    disturbanceSample > horizonDiscard,
+    'normal rendering must reject sky fragments before sampling the simulation texture',
+);
+
 console.log('Ocean screen-space filtering contract passed.');

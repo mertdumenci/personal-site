@@ -75,8 +75,13 @@ assert.match(
 );
 assert.match(
     ocean,
-    /new ResizeObserver\(\(\) => draw\(performance\.now\(\)\)\)/,
-    'live resizing must redraw the current animated ocean frame',
+    /const resizeObserver = new ResizeObserver\(\(\) => \{\s*resize\(\);\s*draw\(performance\.now\(\)\);\s*\}\)/,
+    'live resizing must resize once and redraw the current animated ocean frame',
+);
+assert.match(
+    ocean,
+    /function draw\(now = performance\.now\(\)\) \{\s*advanceSimulation\(now\)/,
+    'steady animation frames must not force synchronous layout measurement',
 );
 
 const canvasRule = css.match(/\.ocean-canvas\s*\{([^}]+)\}/);

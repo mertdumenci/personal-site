@@ -23,7 +23,7 @@
     }
 
     const vertexSource = `#version 300 es
-        in vec2 position;
+        layout(location = 0) in vec2 position;
 
         void main() {
             gl_Position = vec4(position, 0.0, 1.0);
@@ -33,7 +33,8 @@
     const fragmentSource = `#version 300 es
         precision highp float;
 
-        uniform vec2 resolution;
+        uniform vec2 inverseResolution;
+        uniform vec4 projection;
         uniform float time;
         uniform vec3 lineColor;
         uniform vec3 backgroundColor;
@@ -81,34 +82,33 @@
         }
 
         void main() {
-            vec2 uv = gl_FragCoord.xy / resolution;
-            vec3 fluid = texture(disturbanceMap, uv).rgb;
+            vec2 uv = gl_FragCoord.xy * inverseResolution;
 
             if (debugView == 1) {
-                float signedHeight = clamp(0.5 + fluid.r * 18.0, 0.0, 1.0);
+                float signedHeight = clamp(
+                    0.5 + texture(disturbanceMap, uv).r * 18.0,
+                    0.0,
+                    1.0
+                );
                 fragmentColor = vec4(vec3(signedHeight), 1.0);
                 return;
             }
 
             if (debugView == 2) {
-                float speed = clamp(length(fluid.gb) * 3.0, 0.0, 1.0);
+                vec2 velocity = texture(disturbanceMap, uv).gb;
+                float speed = clamp(length(velocity) * 3.0, 0.0, 1.0);
                 fragmentColor = vec4(mix(backgroundColor, lineColor, speed), 1.0);
                 return;
             }
 
-            float aspect = resolution.x / resolution.y;
-            float horizon = mix(
-                0.46,
-                0.72,
-                smoothstep(0.72, 1.15, aspect)
-            );
-
+            float aspect = projection.x;
+            float horizon = projection.y;
             if (uv.y > horizon) {
                 discard;
             }
 
-            float screenDepth = (horizon - uv.y) / horizon;
-            float disturbance = fluid.r;
+            float screenDepth = (horizon - uv.y) * projection.z;
+            float disturbance = texture(disturbanceMap, uv).r;
             float perspective = 1.0 / (screenDepth * 1.55 + 0.026);
             float worldX = (uv.x - 0.5) * aspect * perspective;
             float worldZ = perspective;
@@ -123,7 +123,7 @@
             float crestWeight = bandLimit(crestPhase);
             float ridges = contour(sin(crestPhase), 1.0) * crestWeight;
             float horizonLine = exp(
-                -abs(uv.y - horizon) * resolution.y * 0.42
+                -abs(uv.y - horizon) * projection.w * 0.42
             );
 
             float surfaceDarkness = 0.195 * depthFade;
@@ -147,10 +147,11 @@
         const int maximumBodies = 4;
 
         uniform sampler2D previousState;
-        uniform vec2 texelSize;
+        uniform vec4 grid;
         uniform vec4 physics;
         uniform vec4 coupling;
         uniform float surfaceSmoothing;
+        uniform vec4 damping;
         uniform vec4 currentBodies[maximumBodies];
         uniform vec4 previousBodies[maximumBodies];
         uniform int bodyCount;
@@ -181,12 +182,12 @@
         }
 
         void main() {
-            vec2 uv = gl_FragCoord.xy * texelSize;
+            vec2 uv = gl_FragCoord.xy * grid.xy;
             vec3 center = texture(previousState, uv).rgb;
-            vec3 left = texture(previousState, uv - vec2(texelSize.x, 0.0)).rgb;
-            vec3 right = texture(previousState, uv + vec2(texelSize.x, 0.0)).rgb;
-            vec3 below = texture(previousState, uv - vec2(0.0, texelSize.y)).rgb;
-            vec3 above = texture(previousState, uv + vec2(0.0, texelSize.y)).rgb;
+            vec3 left = texture(previousState, uv - vec2(grid.x, 0.0)).rgb;
+            vec3 right = texture(previousState, uv + vec2(grid.x, 0.0)).rgb;
+            vec3 below = texture(previousState, uv - vec2(0.0, grid.y)).rgb;
+            vec3 above = texture(previousState, uv + vec2(0.0, grid.y)).rgb;
             float timestep = physics.x;
             float gravity = physics.y;
             float meanDepth = physics.z;
@@ -195,8 +196,7 @@
             float bodyCoupling = coupling.y;
             float bodyDisplacement = coupling.z;
             float bodyPressure = coupling.w;
-            float cellSize = texelSize.y;
-            float inverseSpan = 0.5 / cellSize;
+            float inverseSpan = grid.z;
 
             vec2 heightGradient = vec2(
                 right.r - left.r,
@@ -212,13 +212,13 @@
             vec2 velocity = center.gb;
             vec2 velocityLaplacian = (
                 left.gb + right.gb + below.gb + above.gb - 4.0 * velocity
-            ) / (cellSize * cellSize);
+            ) * grid.w;
             float nextHeight = center.r - fluxDivergence * timestep;
             vec2 nextVelocity = velocity
                 - gravity * heightGradient * timestep
                 + viscosity * velocityLaplacian * timestep;
 
-            float aspect = texelSize.y / texelSize.x;
+            float aspect = grid.y / grid.x;
             vec2 metric = vec2(aspect, 1.0);
             vec2 point = uv * metric;
             for (int index = 0; index < maximumBodies; index += 1) {
@@ -236,9 +236,9 @@
                 float contact = exp(-distanceSquared * 0.82);
                 float immersion = smoothstep(0.0, 0.014, body.w);
                 vec2 bodyVelocity = (body.xy - previousBody.xy) / timestep;
-                float bodySpeed = length(bodyVelocity);
-                if (bodySpeed > 0.2) {
-                    bodyVelocity *= 0.2 / bodySpeed;
+                float bodySpeedSquared = dot(bodyVelocity, bodyVelocity);
+                if (bodySpeedSquared > 0.04) {
+                    bodyVelocity *= 0.2 * inversesqrt(bodySpeedSquared);
                 }
 
                 float entrainment = clamp(
@@ -260,16 +260,16 @@
             );
             nextHeight = mix(nextHeight, neighboringHeight, surfaceSmoothing);
 
-            float speed = length(nextVelocity);
-            if (speed > 0.24) {
-                nextVelocity *= 0.24 / speed;
+            float speedSquared = dot(nextVelocity, nextVelocity);
+            if (speedSquared > 0.0576) {
+                nextVelocity *= 0.24 * inversesqrt(speedSquared);
             }
             nextHeight = clamp(nextHeight, -0.045, 0.045);
 
             float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
             float interior = smoothstep(0.0, 0.055, edge);
-            nextHeight *= mix(exp(-6.0 * timestep), exp(-0.025 * timestep), interior);
-            nextVelocity *= mix(exp(-8.0 * timestep), exp(-drag * timestep), interior);
+            nextHeight *= mix(damping.x, damping.y, interior);
+            nextVelocity *= mix(damping.z, damping.w, interior);
             nextState = vec4(nextHeight, nextVelocity, 1.0);
         }
     `;
@@ -341,8 +341,11 @@
             console.warn(error);
         }
     }
-    const positionLocation = gl.getAttribLocation(renderProgram, 'position');
-    const resolutionLocation = gl.getUniformLocation(renderProgram, 'resolution');
+    const inverseResolutionLocation = gl.getUniformLocation(
+        renderProgram,
+        'inverseResolution',
+    );
+    const projectionLocation = gl.getUniformLocation(renderProgram, 'projection');
     const timeLocation = gl.getUniformLocation(renderProgram, 'time');
     const colorLocation = gl.getUniformLocation(renderProgram, 'lineColor');
     const backgroundLocation = gl.getUniformLocation(renderProgram, 'backgroundColor');
@@ -350,16 +353,18 @@
     const disturbanceScaleLocation = gl.getUniformLocation(renderProgram, 'disturbanceScale');
     const debugViewLocation = gl.getUniformLocation(renderProgram, 'debugView');
     const buffer = gl.createBuffer();
+    const vertexArray = gl.createVertexArray();
 
+    gl.bindVertexArray(vertexArray);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(
         gl.ARRAY_BUFFER,
         new Float32Array([-1, -1, 3, -1, -1, 3]),
         gl.STATIC_DRAW,
     );
-    gl.useProgram(renderProgram);
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.activeTexture(gl.TEXTURE0);
 
     const simulationWidth = 256;
     const simulationHeight = 144;
@@ -454,12 +459,12 @@
         const simulation = {
             read,
             write,
-            positionLocation: gl.getAttribLocation(simulationProgram, 'position'),
             stateLocation: gl.getUniformLocation(simulationProgram, 'previousState'),
-            texelLocation: gl.getUniformLocation(simulationProgram, 'texelSize'),
+            gridLocation: gl.getUniformLocation(simulationProgram, 'grid'),
             physicsLocation: gl.getUniformLocation(simulationProgram, 'physics'),
             couplingLocation: gl.getUniformLocation(simulationProgram, 'coupling'),
             smoothingLocation: gl.getUniformLocation(simulationProgram, 'surfaceSmoothing'),
+            dampingLocation: gl.getUniformLocation(simulationProgram, 'damping'),
             currentBodiesLocation: gl.getUniformLocation(simulationProgram, 'currentBodies[0]'),
             previousBodiesLocation: gl.getUniformLocation(simulationProgram, 'previousBodies[0]'),
             bodyCountLocation: gl.getUniformLocation(simulationProgram, 'bodyCount'),
@@ -494,6 +499,49 @@
     let sampledFrameRate = 0;
     let simulationStepsSinceSample = 0;
     let sampledSimulationRate = 0;
+    let simulationActive = false;
+    let uploadedBodyCount = -1;
+    let currentProgram = null;
+    let currentFramebuffer;
+    let currentTexture;
+    let viewportWidth = -1;
+    let viewportHeight = -1;
+
+    /** Switches programs only when the next pass requires a different one. */
+    function useGpuProgram(program) {
+        if (currentProgram === program) return;
+        gl.useProgram(program);
+        currentProgram = program;
+    }
+
+    /** Tracks the draw target to avoid redundant default-framebuffer binds. */
+    function bindDrawTarget(framebuffer) {
+        if (currentFramebuffer === framebuffer) return;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        currentFramebuffer = framebuffer;
+    }
+
+    /** Tracks the unit-zero texture shared by simulation and presentation. */
+    function bindStateTexture(texture) {
+        if (currentTexture === texture) return;
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        currentTexture = texture;
+    }
+
+    /** Updates the viewport only when a pass changes target dimensions. */
+    function setViewport(width, height) {
+        if (viewportWidth === width && viewportHeight === height) return;
+        gl.viewport(0, 0, width, height);
+        viewportWidth = width;
+        viewportHeight = height;
+    }
+
+    /** Matches the shader's responsive horizon calculation. */
+    function horizonForAspect(aspect) {
+        const blend = Math.min(Math.max((aspect - 0.72) / 0.43, 0), 1);
+        const eased = blend * blend * (3 - 2 * blend);
+        return 0.46 + (0.72 - 0.46) * eased;
+    }
 
     /** Matches the drawing buffer to the responsive CSS box and current DPR. */
     function resize() {
@@ -502,11 +550,18 @@
         const width = Math.max(1, Math.round(bounds.width * dpr));
         const height = Math.max(1, Math.round(bounds.height * dpr));
 
-        if (canvas.width !== width || canvas.height !== height) {
-            canvas.width = width;
-            canvas.height = height;
-            gl.viewport(0, 0, width, height);
+        if (canvas.width === width && canvas.height === height) {
+            return false;
         }
+
+        canvas.width = width;
+        canvas.height = height;
+        const aspect = width / height;
+        const horizon = horizonForAspect(aspect);
+        useGpuProgram(renderProgram);
+        gl.uniform2f(inverseResolutionLocation, 1 / width, 1 / height);
+        gl.uniform4f(projectionLocation, aspect, horizon, 1 / horizon, height);
+        return true;
     }
 
     /** Reads the active theme colors so the final GPU pass stays monochromatic. */
@@ -514,7 +569,7 @@
         const styles = getComputedStyle(document.documentElement);
         const line = parseHexColor(styles.getPropertyValue('--text-secondary'));
         const background = parseHexColor(styles.getPropertyValue('--bg'));
-        gl.useProgram(renderProgram);
+        useGpuProgram(renderProgram);
         gl.uniform3fv(colorLocation, line);
         gl.uniform3fv(backgroundLocation, background);
         gl.clearColor(background[0], background[1], background[2], 1);
@@ -526,9 +581,7 @@
         const x = (event.clientX - bounds.left) / bounds.width;
         const y = 1 - (event.clientY - bounds.top) / bounds.height;
         const aspect = bounds.width / bounds.height;
-        const horizonBlend = Math.min(Math.max((aspect - 0.72) / 0.43, 0), 1);
-        const easedBlend = horizonBlend * horizonBlend * (3 - 2 * horizonBlend);
-        const horizon = 0.46 + (0.72 - 0.46) * easedBlend;
+        const horizon = horizonForAspect(aspect);
         const overWater = x >= 0 && x <= 1 && y >= 0 && y <= horizon;
 
         if (!overWater) {
@@ -540,6 +593,11 @@
 
     /** Creates one immersed body whose size and depth respond continuously. */
     function createBody(event, point) {
+        if (!simulationActive) {
+            simulationActive = true;
+            lastSimulationTime = performance.now();
+            simulationAccumulator = 0;
+        }
         const touch = event.pointerType === 'touch';
         const body = {
             target: { ...point },
@@ -622,6 +680,10 @@
 
     /** Eases body geometry while retaining its previous immersed boundary. */
     function advanceBodies(timestep) {
+        if (bodies.size === 0) {
+            return 0;
+        }
+
         currentBodyData.fill(0);
         previousBodyData.fill(0);
         let activeBodies = 0;
@@ -678,38 +740,27 @@
         return activeBodies;
     }
 
-    /** Binds the shared full-screen triangle for one shader program. */
-    function bindGeometry(program, location) {
-        gl.useProgram(program);
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.enableVertexAttribArray(location);
-        gl.vertexAttribPointer(location, 2, gl.FLOAT, false, 0, 0);
-    }
+    /** Uploads simulation uniforms that remain stable across physics steps. */
+    function uploadSimulationParameters() {
+        if (!simulation || !simulationProgram) return;
+        const timestep = simulationStepDuration / 1000;
+        const texelX = 1 / simulationWidth;
+        const texelY = 1 / simulationHeight;
 
-    /** Advances the shallow-water equations by one fixed physical timestep. */
-    function stepSimulation(timestep) {
-        if (!simulation || !simulationProgram) {
-            return;
-        }
-
-        const activeBodies = advanceBodies(timestep);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, simulation.write.framebuffer);
-        gl.viewport(0, 0, simulationWidth, simulationHeight);
-        bindGeometry(simulationProgram, simulation.positionLocation);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, simulation.read.texture);
-        gl.uniform1i(simulation.stateLocation, 0);
-        gl.uniform2f(
-            simulation.texelLocation,
-            1 / simulationWidth,
-            1 / simulationHeight,
+        useGpuProgram(simulationProgram);
+        gl.uniform4f(
+            simulation.gridLocation,
+            texelX,
+            texelY,
+            0.5 / texelY,
+            1 / (texelY * texelY),
         );
         gl.uniform4f(
             simulation.physicsLocation,
             timestep,
             parameters.gravity,
             parameters.meanDepth,
-            parameters.drag,
+            0,
         );
         gl.uniform4f(
             simulation.couplingLocation,
@@ -719,18 +770,64 @@
             parameters.bodyPressure,
         );
         gl.uniform1f(simulation.smoothingLocation, parameters.surfaceSmoothing);
-        gl.uniform4fv(simulation.currentBodiesLocation, currentBodyData);
-        gl.uniform4fv(simulation.previousBodiesLocation, previousBodyData);
-        gl.uniform1i(simulation.bodyCountLocation, activeBodies);
+        gl.uniform4f(
+            simulation.dampingLocation,
+            Math.exp(-6 * timestep),
+            Math.exp(-0.025 * timestep),
+            Math.exp(-8 * timestep),
+            Math.exp(-parameters.drag * timestep),
+        );
+    }
+
+    /** Uploads presentation uniforms that change only when tuning changes. */
+    function uploadRenderParameters() {
+        useGpuProgram(renderProgram);
+        gl.uniform1f(disturbanceScaleLocation, parameters.disturbanceScale);
+    }
+
+    /** Configures persistent sampler and parameter state for both GPU passes. */
+    function configurePrograms() {
+        useGpuProgram(renderProgram);
+        gl.uniform1i(disturbanceLocation, 0);
+        gl.uniform1i(debugViewLocation, debugView);
+        if (simulation && simulationProgram) {
+            useGpuProgram(simulationProgram);
+            gl.uniform1i(simulation.stateLocation, 0);
+        }
+        uploadSimulationParameters();
+        uploadRenderParameters();
+    }
+
+    /** Advances the shallow-water equations by one fixed physical timestep. */
+    function stepSimulation(timestep) {
+        if (!simulation || !simulationProgram) {
+            return;
+        }
+
+        const activeBodies = advanceBodies(timestep);
+        bindDrawTarget(simulation.write.framebuffer);
+        setViewport(simulationWidth, simulationHeight);
+        useGpuProgram(simulationProgram);
+        bindStateTexture(simulation.read.texture);
+        if (activeBodies > 0) {
+            gl.uniform4fv(simulation.currentBodiesLocation, currentBodyData);
+            gl.uniform4fv(simulation.previousBodiesLocation, previousBodyData);
+        }
+        if (uploadedBodyCount !== activeBodies) {
+            gl.uniform1i(simulation.bodyCountLocation, activeBodies);
+            uploadedBodyCount = activeBodies;
+        }
 
         gl.drawArrays(gl.TRIANGLES, 0, 3);
-        [simulation.read, simulation.write] = [simulation.write, simulation.read];
+        const previousRead = simulation.read;
+        simulation.read = simulation.write;
+        simulation.write = previousRead;
         simulationStepsSinceSample += 1;
     }
 
     /** Runs a 120 Hz fixed-step fluid clock independently of presentation FPS. */
     function advanceSimulation(now) {
-        if (!simulation || motionQuery.matches) {
+        if (!simulation || !simulationActive || motionQuery.matches) {
             lastSimulationTime = now;
             simulationAccumulator = 0;
             return;
@@ -750,22 +847,13 @@
 
     /** Draws one ocean frame from the current persistent simulation state. */
     function draw(now = performance.now()) {
-        resize();
         advanceSimulation(now);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        bindGeometry(renderProgram, positionLocation);
+        bindDrawTarget(null);
+        setViewport(canvas.width, canvas.height);
+        useGpuProgram(renderProgram);
+        bindStateTexture(simulation ? simulation.read.texture : zeroTexture);
         gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
         gl.uniform1f(timeLocation, (now - startTime) / 1000);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(
-            gl.TEXTURE_2D,
-            simulation ? simulation.read.texture : zeroTexture,
-        );
-        gl.uniform1i(disturbanceLocation, 0);
-        gl.uniform1f(disturbanceScaleLocation, parameters.disturbanceScale);
-        gl.uniform1i(debugViewLocation, debugView);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
 
         sampledFrames += 1;
@@ -806,13 +894,29 @@
 
     /** Applies bounded laboratory parameters without destabilizing the solver. */
     function setParameters(values) {
+        let changed = false;
         for (const [name, value] of Object.entries(values)) {
             const limits = parameterLimits[name];
             if (!limits || !Number.isFinite(value)) {
                 continue;
             }
-            parameters[name] = Math.min(Math.max(value, limits[0]), limits[1]);
+            const nextValue = Math.min(Math.max(value, limits[0]), limits[1]);
+            if (parameters[name] !== nextValue) {
+                parameters[name] = nextValue;
+                changed = true;
+            }
         }
+        if (changed) {
+            uploadSimulationParameters();
+            uploadRenderParameters();
+        }
+    }
+
+    /** Applies a diagnostic view without resending it on every frame. */
+    function setDebugView(view) {
+        debugView = Math.min(Math.max(Number(view) || 0, 0), 2);
+        useGpuProgram(renderProgram);
+        gl.uniform1i(debugViewLocation, debugView);
     }
 
     /** Clears both fluid buffers and every immersed body deterministically. */
@@ -823,13 +927,15 @@
 
         gl.clearColor(0, 0, 0, 0);
         for (const target of [simulation.read, simulation.write]) {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+            bindDrawTarget(target.framebuffer);
             gl.clear(gl.COLOR_BUFFER_BIT);
         }
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        bindDrawTarget(null);
         bodies.clear();
         currentBodyData.fill(0);
         previousBodyData.fill(0);
+        simulationActive = false;
+        uploadedBodyCount = -1;
         const now = performance.now();
         lastSimulationTime = now;
         simulationAccumulator = 0;
@@ -842,6 +948,7 @@
         return {
             frameRate: sampledFrameRate,
             simulationRate: sampledSimulationRate,
+            active: simulationActive,
             bodies: bodies.size,
             width: simulationWidth,
             height: simulationHeight,
@@ -854,6 +961,7 @@
         cancelAnimationFrame(animationFrame);
         animationFrame = 0;
         updateColors();
+        resize();
 
         startTime = performance.now();
         lastDrawTime = startTime;
@@ -871,7 +979,11 @@
         animationFrame = requestAnimationFrame(animate);
     }
 
-    const resizeObserver = new ResizeObserver(() => draw(performance.now()));
+    configurePrograms();
+    const resizeObserver = new ResizeObserver(() => {
+        resize();
+        draw(performance.now());
+    });
     resizeObserver.observe(canvas);
     window.addEventListener('pointermove', handlePointerMove, { passive: true });
     window.addEventListener('pointerdown', handlePointerDown, { passive: true });
@@ -905,9 +1017,7 @@
                 getParameters: () => ({ ...parameters }),
                 getMetrics: simulationMetrics,
                 reset: resetSimulation,
-                setDebugView: (view) => {
-                    debugView = Math.min(Math.max(Number(view) || 0, 0), 2);
-                },
+                setDebugView,
                 setParameters,
             }),
         });
