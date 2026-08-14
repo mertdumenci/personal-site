@@ -75,8 +75,8 @@ assert.match(
 );
 assert.match(
     ocean,
-    /const resizeObserver = new ResizeObserver\(\(\) => \{\s*resize\(\);\s*draw\(performance\.now\(\)\);\s*\}\)/,
-    'live resizing must resize once and redraw the current animated ocean frame',
+    /const resizeObserver = new ResizeObserver\(\(\) => \{\s*resize\(\);\s*updateContentFeather\(\);\s*draw\(performance\.now\(\)\);\s*\}\)/,
+    'live resizing must update the drawing buffer and content feather before redrawing',
 );
 assert.match(
     ocean,

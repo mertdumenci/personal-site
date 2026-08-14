@@ -41,6 +41,8 @@
         uniform sampler2D disturbanceMap;
         uniform float disturbanceScale;
         uniform int debugView;
+        uniform vec4 featherBounds;
+        uniform vec4 featherShape;
 
         out vec4 fragmentColor;
 
@@ -49,10 +51,22 @@
             return 1.0 - smoothstep(0.28, 1.0, footprint);
         }
 
-        float gradientNoise(vec2 pixel) {
-            return fract(
-                52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715)))
-            );
+        float ditherNoise(vec2 pixel) {
+            uvec2 coordinate = uvec2(pixel);
+            uint state = coordinate.x * 747796405u
+                + coordinate.y * 2891336453u + 277803737u;
+            uint word = (
+                (state >> ((state >> 28u) + 4u)) ^ state
+            ) * 277803737u;
+            return float((word >> 22u) ^ word) / 4294967295.0;
+        }
+
+        float contentFeather(vec2 pixel) {
+            float resolutionHeight = 1.0 / inverseResolution.y;
+            vec2 topDownPixel = vec2(pixel.x, resolutionHeight - pixel.y);
+            vec2 normalized = (topDownPixel - featherBounds.xy) / featherBounds.zw;
+            float radius = length(normalized / featherShape.xy);
+            return featherShape.w * (1.0 - smoothstep(featherShape.z, 1.0, radius));
         }
 
         float waveField(vec2 point) {
@@ -134,8 +148,13 @@
                 0.0,
                 0.52
             );
-            float dither = (gradientNoise(gl_FragCoord.xy) - 0.5) / 255.0;
+            float feather = contentFeather(gl_FragCoord.xy);
             vec3 color = mix(backgroundColor, lineColor, alpha * 0.92);
+            color = mix(color, backgroundColor, feather);
+            float ditherStrength = 1.0 - smoothstep(0.985, 1.0, feather);
+            float dither = (
+                ditherNoise(gl_FragCoord.xy) - 0.5
+            ) * ditherStrength / 255.0;
 
             fragmentColor = vec4(clamp(color + dither, 0.0, 1.0), 1.0);
         }
@@ -352,6 +371,8 @@
     const disturbanceLocation = gl.getUniformLocation(renderProgram, 'disturbanceMap');
     const disturbanceScaleLocation = gl.getUniformLocation(renderProgram, 'disturbanceScale');
     const debugViewLocation = gl.getUniformLocation(renderProgram, 'debugView');
+    const featherBoundsLocation = gl.getUniformLocation(renderProgram, 'featherBounds');
+    const featherShapeLocation = gl.getUniformLocation(renderProgram, 'featherShape');
     const buffer = gl.createBuffer();
     const vertexArray = gl.createVertexArray();
 
@@ -484,6 +505,7 @@
 
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const colorQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const narrowQuery = window.matchMedia('(max-width: 600px)');
     const targetFrameDuration = 1000 / 60;
     const bodies = new Map();
     const currentBodyData = new Float32Array(maximumBodies * 4);
@@ -561,6 +583,66 @@
         useGpuProgram(renderProgram);
         gl.uniform2f(inverseResolutionLocation, 1 / width, 1 / height);
         gl.uniform4f(projectionLocation, aspect, horizon, 1 / horizon, height);
+        return true;
+    }
+
+    /**
+     * Maps the content's elliptical shelter into drawing-buffer coordinates.
+     * Keeping this blend in the opaque final pass avoids quantized CSS-alpha rings.
+     */
+    function updateContentFeather() {
+        const main = document.querySelector('main');
+        if (!main) {
+            useGpuProgram(renderProgram);
+            gl.uniform4f(featherBoundsLocation, 0, 0, 1, 1);
+            gl.uniform4f(featherShapeLocation, 1, 1, 1, 0);
+            return false;
+        }
+
+        const canvasBounds = canvas.getBoundingClientRect();
+        const mainBounds = main.getBoundingClientRect();
+        const narrow = narrowQuery.matches;
+        const layout = narrow
+            ? {
+                offsetX: -38,
+                offsetY: -48,
+                extraWidth: 38,
+                extraHeight: 220,
+                radiusX: 1.18,
+                radiusY: 1.06,
+                fadeStart: 0.54,
+            }
+            : {
+                offsetX: -72,
+                offsetY: -72,
+                extraWidth: 72,
+                extraHeight: 250,
+                radiusX: 1.08,
+                radiusY: 1.12,
+                fadeStart: 0.5,
+            };
+        const scaleX = canvas.width / canvasBounds.width;
+        const scaleY = canvas.height / canvasBounds.height;
+        const width = narrow
+            ? window.innerWidth + layout.extraWidth
+            : Math.min(1120, window.innerWidth + layout.extraWidth);
+        const height = mainBounds.height + layout.extraHeight;
+
+        useGpuProgram(renderProgram);
+        gl.uniform4f(
+            featherBoundsLocation,
+            (mainBounds.left + layout.offsetX - canvasBounds.left) * scaleX,
+            (mainBounds.top + layout.offsetY - canvasBounds.top) * scaleY,
+            width * scaleX,
+            height * scaleY,
+        );
+        gl.uniform4f(
+            featherShapeLocation,
+            layout.radiusX,
+            layout.radiusY,
+            layout.fadeStart,
+            1,
+        );
         return true;
     }
 
@@ -962,6 +1044,7 @@
         animationFrame = 0;
         updateColors();
         resize();
+        updateContentFeather();
 
         startTime = performance.now();
         lastDrawTime = startTime;
@@ -982,9 +1065,34 @@
     configurePrograms();
     const resizeObserver = new ResizeObserver(() => {
         resize();
+        updateContentFeather();
         draw(performance.now());
     });
     resizeObserver.observe(canvas);
+
+    /** Starts tracking content geometry after the parser has created the main element. */
+    function observeContentFeather() {
+        const main = document.querySelector('main');
+        if (!main) return;
+        resizeObserver.observe(main);
+        updateContentFeather();
+        draw(performance.now());
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', observeContentFeather, { once: true });
+    } else {
+        observeContentFeather();
+    }
+
+    /** Keeps the GPU feather attached to document content during viewport scrolling. */
+    function handleScroll() {
+        updateContentFeather();
+        if (motionQuery.matches || document.hidden) {
+            draw(performance.now());
+        }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('pointermove', handlePointerMove, { passive: true });
     window.addEventListener('pointerdown', handlePointerDown, { passive: true });
     window.addEventListener('pointerup', handlePointerEnd, { passive: true });

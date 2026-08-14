@@ -88,58 +88,6 @@ main {
     user-select: text;
 }
 
-main::before {
-    content: '';
-    position: absolute;
-    top: -72px;
-    left: -72px;
-    width: min(1120px, calc(100vw + 72px));
-    height: calc(100% + 250px);
-    z-index: -1;
-    background: radial-gradient(
-        ellipse 108% 112% at 0% 0%,
-        rgba(var(--bg-rgb), 1) 0%,
-        rgba(var(--bg-rgb), 0.98) 54%,
-        rgba(var(--bg-rgb), 0.88) 66%,
-        rgba(var(--bg-rgb), 0.48) 77%,
-        rgba(var(--bg-rgb), 0) 100%
-    );
-    filter: blur(15px);
-    pointer-events: none;
-}
-
-/* Dither only the translucent feather so low-bit-depth displays do not reveal rings. */
-main::after {
-    content: '';
-    position: absolute;
-    top: -72px;
-    left: -72px;
-    width: min(1120px, calc(100vw + 72px));
-    height: calc(100% + 250px);
-    z-index: -1;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='2' seed='19' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.42'/%3E%3C/svg%3E");
-    background-size: 96px 96px;
-    opacity: 0.026;
-    mix-blend-mode: soft-light;
-    mask-image: radial-gradient(
-        ellipse 108% 112% at 0% 0%,
-        transparent 0%,
-        transparent 50%,
-        black 61%,
-        black 94%,
-        transparent 100%
-    );
-    -webkit-mask-image: radial-gradient(
-        ellipse 108% 112% at 0% 0%,
-        transparent 0%,
-        transparent 50%,
-        black 61%,
-        black 94%,
-        transparent 100%
-    );
-    pointer-events: none;
-}
-
 .header {
     margin-bottom: 24px;
 }
@@ -235,24 +183,12 @@ main::after {
         transition: opacity 100ms linear;
         transform: translate(-50%, 0);
     }
-
 }
 
 @media (forced-colors: active) {
     .role a:focus-visible,
     .value a:focus-visible {
         outline-color: Highlight;
-    }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-    main::before {
-        background: var(--bg);
-        filter: none;
-    }
-
-    main::after {
-        display: none;
     }
 }
 
@@ -306,45 +242,13 @@ main::after {
     pointer-events: none;
 }
 
+@media (prefers-reduced-transparency: reduce) {
+    .ocean-canvas {
+        display: none;
+    }
+}
+
 @media (max-width: 600px) {
-    main::before {
-        top: -48px;
-        left: -38px;
-        width: calc(100vw + 38px);
-        height: calc(100% + 220px);
-        background: radial-gradient(
-            ellipse 118% 106% at 0% 0%,
-            rgba(var(--bg-rgb), 1) 0%,
-            rgba(var(--bg-rgb), 0.98) 58%,
-            rgba(var(--bg-rgb), 0.86) 70%,
-            rgba(var(--bg-rgb), 0.44) 82%,
-            rgba(var(--bg-rgb), 0) 100%
-        );
-    }
-
-    main::after {
-        top: -48px;
-        left: -38px;
-        width: calc(100vw + 38px);
-        height: calc(100% + 220px);
-        mask-image: radial-gradient(
-            ellipse 118% 106% at 0% 0%,
-            transparent 0%,
-            transparent 54%,
-            black 65%,
-            black 95%,
-            transparent 100%
-        );
-        -webkit-mask-image: radial-gradient(
-            ellipse 118% 106% at 0% 0%,
-            transparent 0%,
-            transparent 54%,
-            black 65%,
-            black 95%,
-            transparent 100%
-        );
-    }
-
     .ocean-canvas {
         height: clamp(360px, 72vh, 680px);
     }

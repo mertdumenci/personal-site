@@ -34,22 +34,22 @@ assert.doesNotMatch(
 );
 assert.match(
     ocean,
-    /float gradientNoise\(vec2 pixel\)/,
+    /float ditherNoise\(vec2 pixel\)/,
     'smooth shading must include static screen-space dithering',
 );
 assert.match(
     ocean,
-    /gradientNoise\(gl_FragCoord\.xy\)/,
+    /ditherNoise\(gl_FragCoord\.xy\)/,
     'dithering must operate at physical-pixel resolution',
 );
 assert.match(
     ocean,
     /vec3 color = mix\(backgroundColor, lineColor, alpha \* 0\.92\)/,
-    'the shader must composite the ocean once in final display space',
+    'the shader must composite the ocean in final display space',
 );
 assert.match(
     ocean,
-    /gradientNoise\(gl_FragCoord\.xy\) - 0\.5\) \/ 255\.0/,
+    /ditherNoise\(gl_FragCoord\.xy\) - 0\.5[\s\S]*ditherStrength \/ 255\.0/,
     'final display colors must be dithered by one output-code step',
 );
 assert.match(
