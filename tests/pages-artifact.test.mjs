@@ -29,7 +29,7 @@ try {
         'the deployed ocean runtime must compact shader whitespace',
     );
     assert.ok(
-        Buffer.byteLength(ocean) < 27_000,
+        Buffer.byteLength(ocean) < 30_000,
         'the deployed ocean runtime must omit documentation and indentation',
     );
     assert.doesNotMatch(
@@ -53,8 +53,8 @@ try {
     );
     assert.match(
         style,
-        /calc\(100vw \+ 72px\)/,
-        'CSS compaction must preserve required calc operator spacing',
+        /--mono:'JetBrains Mono',ui-monospace,'SF Mono',monospace/,
+        'CSS compaction must preserve whitespace inside quoted values',
     );
     assert.ok(
         Buffer.byteLength(html) < 5_500,

@@ -42,6 +42,27 @@ function compactShader(source) {
     return sections.join('\n');
 }
 
+/** Remove standalone documentation blocks from the deployed JavaScript. */
+function stripDocumentationComments(source) {
+    let insideDocumentation = false;
+    const lines = source.split('\n').filter((line) => {
+        const trimmed = line.trim();
+        if (insideDocumentation) {
+            insideDocumentation = !trimmed.includes('*/');
+            return false;
+        }
+        if (!trimmed.startsWith('/**')) {
+            return true;
+        }
+        insideDocumentation = !trimmed.includes('*/');
+        return false;
+    });
+    if (insideDocumentation) {
+        throw new Error('Unterminated JavaScript documentation comment');
+    }
+    return lines.join('\n');
+}
+
 /** Compact every known shader template and reject incomplete source changes. */
 function compactOcean(source) {
     let output = source;
@@ -58,11 +79,7 @@ function compactOcean(source) {
             );
         }
     }
-    const withoutDocumentation = output.replaceAll(
-        /^\s*\/\*\*.*\*\/\s*$/gm,
-        '',
-    );
-    return compactStructuralWhitespace(withoutDocumentation);
+    return compactStructuralWhitespace(stripDocumentationComments(output));
 }
 
 /** Remove CSS comments and isolate strings before whitespace compaction. */
