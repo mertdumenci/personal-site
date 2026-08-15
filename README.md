@@ -34,7 +34,7 @@ uv run tools/analyze_ocean.py /path/to/captures
 
 ## Configuration
 
-There are no environment variables. The `CNAME` file configures the GitHub Pages custom domain. A GitHub Actions workflow tests the site and deploys an explicit four-file artifact from `master`: `CNAME`, `index.html`, `ocean.js`, and `style.css`. The build removes the local-control loader and deployment-only JavaScript documentation comments, then compacts embedded GLSL, CSS, and structural JavaScript/HTML whitespace without obscuring the readable sources; all tuning and diagnostic tools remain available only in source checkouts and local previews.
+There are no environment variables. The `CNAME` file configures the GitHub Pages custom domain. A GitHub Actions workflow tests the site and deploys an explicit four-file artifact from `master`: `CNAME`, `index.html`, `ocean.js`, and `style.css`. The build removes the local-control loader and deployment-only JavaScript documentation comments, then compacts embedded GLSL, CSS, and structural JavaScript/HTML whitespace without obscuring the readable sources; all tuning and diagnostic tools remain available only in source checkouts and local previews. The build also derives the deployed `ocean.js` and `style.css` cache stamps from the compacted assets' content hashes, so those URLs change whenever the asset bytes change and a deploy can never ship a stale reference.
 
 ## Ocean renderer
 
