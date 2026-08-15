@@ -31,12 +31,17 @@ jobs:
 
       - name: Build production artifact
         run: ./scripts/build-pages.sh _site
+      - name: Install smoke browser
+        run: npm install --no-save playwright@1.62.1 && npx playwright install --with-deps chromium
+
+      - name: Smoke test deployment artifact
+        run: node scripts/smoke-deployment.mjs _site
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -49,4 +54,4 @@ jobs:
     steps:
       - name: Deploy Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
